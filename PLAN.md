@@ -221,7 +221,7 @@ FINE
 ```
   Verifica: `python3 -m unittest tests/test_cliente.py && python3 -m unittest tests/test_kb.py`
 
-- [ ] 4. Test di `web.py`
+- [x] 4. Test di `web.py`
   File: `tests/test_web.py` (nuovo)
   Cosa fare: crea `tests/test_web.py` con **esattamente** questo contenuto, senza cambiare nulla:
 ```
