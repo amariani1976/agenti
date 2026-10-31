@@ -275,7 +275,7 @@ non usa argparse, ha predefiniti sbagliati (`KB_DIR` «.» invece di `/srv/kb`, 
 non supporta `cerca -n N`, con un segreto in `salva` va in traceback, inventa la variabile `KB_ODO`, `cerca` non usa
 `snippet()` (estratto sbagliato con più parole) e nasconde gli errori, il titolo prende anche le righe `## …`.
 
-- [ ] 10. Test del collaudo 1
+- [x] 10. Test del collaudo 1
   File: `tests/test_collaudo1.py` (nuovo)
   Cosa fare: crea `tests/test_collaudo1.py` con **esattamente** questo contenuto, senza cambiare nulla:
 ```
