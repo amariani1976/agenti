@@ -447,7 +447,7 @@ EOF
 ```
   Verifica: `grep -q 'snippet(note' kb/kb.py && python3 -m unittest tests/test_collaudo1.py -k test_estratto_con_snippet && python3 -m unittest tests/test_kb.py -k IndiceTest`
 
-- [ ] 13. KB: riga di comando con argparse
+- [x] 13. KB: riga di comando con argparse
   File: `kb/kb.py`
   Cosa fare: **non modificare il file a mano.** Esegui soltanto, dalla radice del progetto, questo comando, che
   sostituisce la sola funzione `main` (da `def main` a `if __name__ == '__main__':`; il resto del file resta com'è).

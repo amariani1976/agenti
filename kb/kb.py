@@ -233,88 +233,39 @@ def cerca(db, query, n=5):
     return [{'path': p, 'titolo': t, 'estratto': e} for p, t, e in righe]
 
 
-def main():
-    """Interfaccia da riga di comando."""
-    if len(sys.argv) < 2:
-        print('Uso: kb.py <comando> [argomenti]')
-        print('Comandi: salva, leggi, indicizza, cerca')
+def main(argv=None):
+    """Riga di comando: indicizza, cerca, leggi, salva (testo da stdin)."""
+    import argparse
+    ap = argparse.ArgumentParser(prog='kb', description='Knowledge base in Markdown')
+    sub = ap.add_subparsers(dest='comando', required=True)
+    sub.add_parser('indicizza', help="ricostruisce l'indice")
+    c = sub.add_parser('cerca', help='cerca nelle note')
+    c.add_argument('query')
+    c.add_argument('-n', type=int, default=5)
+    l = sub.add_parser('leggi', help='stampa una nota')
+    l.add_argument('nota')
+    s = sub.add_parser('salva', help='salva in inbox/ il testo letto da stdin')
+    s.add_argument('--agente', required=True)
+    s.add_argument('--titolo', required=True)
+    s.add_argument('--progetto')
+    a = ap.parse_args(argv)
+    kb_dir = os.environ.get('KB_DIR', '/srv/kb')
+    db = os.environ.get('KB_DB', os.path.expanduser('~/.cache/kb/indice.db'))
+    try:
+        if a.comando == 'indicizza':
+            print('note indicizzate: %d' % indicizza(kb_dir, db))
+        elif a.comando == 'cerca':
+            for r in cerca(db, a.query, a.n):
+                print('%s: %s' % (r['path'], r['titolo']))
+                print('  ' + ' '.join(r['estratto'].split()))
+        elif a.comando == 'leggi':
+            sys.stdout.write(leggi(kb_dir, a.nota))
+        else:
+            print(salva(kb_dir, a.agente, a.titolo, sys.stdin.read(), progetto=a.progetto))
+    except (ValueError, sqlite3.OperationalError) as e:
+        print('kb: %s' % e, file=sys.stderr)
         return 1
-    
-    cmd = sys.argv[1]
-    
-    if cmd == 'salva':
-        # Salva: kb.py salva --agente N --titolo T --progetto P
-        agente = None
-        titolo = None
-        progetto = None
-        i = 2
-        while i < len(sys.argv):
-            if sys.argv[i] == '--agente':
-                agente = sys.argv[i + 1]
-                i += 2
-            elif sys.argv[i] == '--titolo':
-                titolo = sys.argv[i + 1]
-                i += 2
-            elif sys.argv[i] == '--progetto':
-                progetto = sys.argv[i + 1]
-                i += 2
-            else:
-                i += 1
-        
-        if not agente or not titolo:
-            print('Errore: --agente e --titolo sono richiesti')
-            return 1
-        
-        # Leggi il corpo da stdin
-        testo = sys.stdin.read()
-        
-        kb_dir = os.environ.get('KB_DIR', '.')
-        oggi = os.environ.get('KB_ODO', None)
-        
-        rel = salva(kb_dir, agente, titolo, testo, progetto=progetto, oggi=oggi)
-        print(rel)
-        return 0
-    
-    elif cmd == 'leggi':
-        if len(sys.argv) < 3:
-            print('Uso: kb.py leggi <percorso>')
-            return 1
-        
-        kb_dir = os.environ.get('KB_DIR', '.')
-        path = sys.argv[2]
-        
-        try:
-            print(leggi(kb_dir, path))
-            return 0
-        except ValueError as e:
-            print(f'Errore: {e}', file=sys.stderr)
-            return 1
-    
-    elif cmd == 'indicizza':
-        kb_dir = os.environ.get('KB_DIR', '.')
-        db_path = os.environ.get('KB_DB', os.path.join(kb_dir, 'indice.db'))
-        
-        count = indicizza(kb_dir, db_path)
-        print(f'Indicizzati: {count}')
-        return 0
-    
-    elif cmd == 'cerca':
-        if len(sys.argv) < 3:
-            print('Uso: kb.py cerca <query>')
-            return 1
-        
-        db_path = os.environ.get('KB_DB', 'indice.db')
-        query = sys.argv[2]
-        
-        risultati = cerca(db_path, query)
-        for r in risultati:
-            print(f'{r["path"]}: {r["titolo"]}')
-            print(f'  {r["estratto"]}')
-        return 0
-    
-    else:
-        print(f'Comando non riconosciuto: {cmd}')
-        return 1
+    return 0
 
 
 if __name__ == '__main__':
