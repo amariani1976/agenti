@@ -129,7 +129,7 @@ if __name__ == '__main__':
   `ValueError` prima di creare file. `controlla_segreti` si applica a titolo e testo insieme.
   Verifica: `python3 -m unittest tests/test_kb_fonti.py && python3 -m unittest tests/test_kb.py`
 
-- [ ] 5. Test del servizio
+- [x] 5. Test del servizio
   File: `tests/test_servizio.py` (nuovo)
   Cosa fare: crea `tests/test_servizio.py` con **esattamente** questo contenuto, senza cambiare nulla:
 ```
