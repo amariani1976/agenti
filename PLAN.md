@@ -418,7 +418,7 @@ if __name__ == '__main__':
   risolve il nome (errore → `False`); `True` solo se **tutti** gli indirizzi sono `is_global` e non multicast.
   Verifica: `python3 -m unittest tests/test_web.py -k IndirizziTest`
 
-- [ ] 7. `web.py`: limiti d'uso
+- [x] 7. `web.py`: limiti d'uso
   File: `web/web.py`
   Cosa fare: aggiungi `conta(tipo, file=None, ora=None, limiti=None, finestra=FINESTRA)` come richiesto da
   `LimitiTest`: file JSON `{tipo: [istanti]}` (predefinito `~/.cache/web/usi.json`, file rovinato = vuoto), tiene

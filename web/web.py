@@ -246,6 +246,67 @@ def scarica(url, timeout=15, massimo=2 << 20):
         return e.code, intestazioni, corpo
 
 
+def conta(tipo, file=None, ora=None, limiti=None, finestra=FINESTRA):
+    """Controlla e aggiorna il conteggio degli usi per un tipo.
+
+    Args:
+        tipo: nome del tipo di uso (es. 'cerca', 'leggi').
+        file: percorso del file JSON di conteggio (default ~/.cache/web/usi.json).
+        ora: istante corrente in secondi (default time.time()).
+        limiti: dizionario {tipo: massimo} (default LIMITI).
+        finestra: durata della finestra in secondi (default FINESTRA).
+
+    Returns:
+        Il nuovo conteggio dopo l'aggiunta.
+
+    Raises:
+        ValueError: se il limite per il tipo è stato raggiunto.
+    """
+    import time as time_mod
+    import json as json_mod
+    import os as os_mod
+
+    if file is None:
+        file = os.path.expanduser('~/.cache/web/usi.json')
+    if ora is None:
+        ora = time_mod.time()
+    if limiti is None:
+        limiti = LIMITI
+
+    # Carica il file JSON o usa un dizionario vuoto
+    conteggi = {}
+    try:
+        with open(file, 'r') as f:
+            conteggi = json_mod.load(f)
+    except (IOError, json_mod.JSONDecodeError, OSError):
+        # File rovinato o non esistente: usa vuoto
+        conteggi = {}
+
+    # Pulizia: tiene solo gli istanti dentro la finestra
+    for t in conteggi:
+        conteggi[t] = [i for i in conteggi[t] if ora - i < finestra]
+
+    # Controlla se il limite è stato raggiunto
+    istanti = conteggi.get(tipo, [])
+    if len(istanti) >= limiti.get(tipo, 0):
+        raise ValueError(f'limite raggiunto: {tipo}')
+
+    # Aggiungi l'istante corrente e riscrivi il file
+    istanti.append(ora)
+    conteggi[tipo] = istanti
+
+    # Crea la cartella se manca
+    cartella = os.path.dirname(file)
+    if cartella and not os.path.exists(cartella):
+        os.makedirs(cartella, exist_ok=True)
+
+    # Riscrive il file
+    with open(file, 'w') as f:
+        json_mod.dump(conteggi, f)
+
+    return len(istanti)
+
+
 if __name__ == '__main__':
     # Punto di ingresso per test manuali
     print('Modulo web.py caricato.')
