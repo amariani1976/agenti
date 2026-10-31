@@ -199,8 +199,8 @@ def indicizza(kb, db):
             # Estrai titolo dalla prima riga # ...
             titolo = 'documento'
             for riga in testo.split('\n'):
-                if riga.startswith('#'):
-                    titolo = riga[1:].strip()
+                if riga.startswith('# '):
+                    titolo = riga[2:].strip()
                     break
             # Se non c'è titolo, usa il nome del file senza estensione
             if titolo == 'documento':
@@ -367,3 +367,4 @@ def main():
 
 if __name__ == '__main__':
     sys.exit(main())
+

@@ -395,7 +395,7 @@ if __name__ == '__main__':
 ```
   Verifica: `python3 -c "import ast; ast.parse(open('tests/test_collaudo1.py').read())"`
 
-- [ ] 11. KB: titolo solo dalla riga `# …`
+- [x] 11. KB: titolo solo dalla riga `# …`
   File: `kb/kb.py`
   Cosa fare: **non modificare il file a mano.** Esegui soltanto, dalla radice del progetto, questo comando, che
   sostituisce in `indicizza` il blocco del titolo (le altre righe del file restano come sono):
