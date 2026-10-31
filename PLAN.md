@@ -293,7 +293,7 @@ FINE
 ```
   Verifica: `python3 -c "import sys, types, unittest; [sys.modules.setdefault(m, types.ModuleType(m)) for m in ('ammissione', 'proxy')]; sys.path.insert(0, 'tests'); import test_coda; r = unittest.TextTestRunner().run(unittest.defaultTestLoader.loadTestsFromTestCase(test_coda.StimaTest)); sys.exit(not r.wasSuccessful() or r.testsRun != 1)"`
 
-- [ ] 3. Coda: capacità e slot
+- [x] 3. Coda: capacità e slot
   File: `coda/ammissione.py` (nuovo)
   Cosa fare: crea `coda/ammissione.py` (docstring in italiano; import `itertools`, `threading`, `time`) con
   `PRIORITA = {'alta': 0, 'normale': 1, 'bassa': 2}`, l'eccezione `Pieno(Exception)` e la classe
