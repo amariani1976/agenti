@@ -1,5 +1,5 @@
 ---
-stato: bozza
+stato: in-esecuzione
 ramo: ai/agenti-base
 modello: esecutore
 verifica_globale: python3 -m unittest tests/test_kb.py tests/test_agente.py tests/test_kb_fonti.py tests/test_servizio.py
