@@ -315,7 +315,7 @@ FINE
   Nota: `coda/proxy.py` non esiste ancora (passo 4): non crearlo; la verifica lo sostituisce con un modulo vuoto.
   Verifica: `python3 -c "import sys, types, unittest; sys.modules.setdefault('proxy', types.ModuleType('proxy')); sys.path.insert(0, 'tests'); import test_coda; r = unittest.TextTestRunner().run(unittest.defaultTestLoader.loadTestsFromTestCase(test_coda.CodaTest)); sys.exit(not r.wasSuccessful() or r.testsRun != 6)"`
 
-- [ ] 4. Proxy HTTP (già pronto)
+- [x] 4. Proxy HTTP (già pronto)
   File: `coda/proxy.py` (nuovo)
   Cosa fare: **non scrivere il file a mano.** Esegui soltanto, dalla radice del progetto, questo comando:
 ```
