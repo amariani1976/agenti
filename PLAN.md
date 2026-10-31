@@ -396,7 +396,7 @@ if __name__ == '__main__':
 ```
   Verifica: `python3 -c "import ast; ast.parse(open('tests/test_web.py').read())"`
 
-- [ ] 5. `web.py`: costanti, scaricamento ed estrazione del testo
+- [x] 5. `web.py`: costanti, scaricamento ed estrazione del testo
   File: `web/web.py` (nuovo)
   Cosa fare: crea `web/web.py` (docstring in italiano; import: `argparse`, `html.parser`, `ipaddress`, `json`, `os`,
   `socket`, `sys`, `time`, `urllib.error`, `urllib.parse`, `urllib.request`) con:
