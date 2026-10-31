@@ -268,3 +268,229 @@ EOF
   Cosa fare: esegui tutti i test.
   Verifica: `python3 -m unittest tests/test_kb.py tests/test_agente.py`
 
+## Correzioni del collaudo 1
+Difetti trovati: `bin/agente` passa a pi **solo** `PI_CODING_AGENT_DIR` (perde HOME, `KB_DIR`, `KB_DB`… che la skill
+`kb` dà per impostate), ignora il codice di uscita di pi e va in traceback con `--cartella` inesistente; `kb/kb.py`
+non usa argparse, ha predefiniti sbagliati (`KB_DIR` «.» invece di `/srv/kb`, `KB_DB` non in `~/.cache/kb/indice.db`),
+non supporta `cerca -n N`, con un segreto in `salva` va in traceback, inventa la variabile `KB_ODO`, `cerca` non usa
+`snippet()` (estratto sbagliato con più parole) e nasconde gli errori, il titolo prende anche le righe `## …`.
+
+- [ ] 10. Test del collaudo 1
+  File: `tests/test_collaudo1.py` (nuovo)
+  Cosa fare: crea `tests/test_collaudo1.py` con **esattamente** questo contenuto, senza cambiare nulla:
+```
+"""Test del collaudo 1: ambiente e codice di uscita di bin/agente, riga di comando e ricerca di kb/kb.py."""
+import importlib.machinery
+import importlib.util
+import os
+import re
+import shutil
+import subprocess
+import sys
+import tempfile
+import unittest
+
+QUI = os.path.dirname(os.path.abspath(__file__))
+sys.dont_write_bytecode = True
+sys.path.insert(0, os.path.join(QUI, '..', 'kb'))
+import kb  # noqa: E402
+
+AGENTE = os.path.join(QUI, '..', 'bin', 'agente')
+KBPY = os.path.join(QUI, '..', 'kb', 'kb.py')
+
+
+class AgenteMainTest(unittest.TestCase):
+    def setUp(self):
+        self.radice = tempfile.mkdtemp()
+        os.makedirs(os.path.join(self.radice, 'profili', 'prova'))
+        self.finto = os.path.join(self.radice, 'pi-finto')
+        with open(self.finto, 'w') as f:
+            f.write('#!/bin/sh\necho "$PI_CODING_AGENT_DIR|$HOME|$KB_DIR"\nexit 3\n')
+        os.chmod(self.finto, 0o755)
+
+    def tearDown(self):
+        shutil.rmtree(self.radice, ignore_errors=True)
+
+    def esegui(self, *argomenti):
+        env = dict(os.environ, AGENTE_PI=self.finto, AGENTE_RADICE=self.radice, HOME='/casa/prova', KB_DIR='/kb/prova')
+        return subprocess.run([sys.executable, AGENTE] + list(argomenti), env=env, stdout=subprocess.PIPE,
+                              stderr=subprocess.PIPE, universal_newlines=True)
+
+    def test_conserva_ambiente_e_codice_di_uscita(self):
+        r = self.esegui('prova', '--cartella', '/tmp', 'compito')
+        self.assertEqual(r.stdout.strip(), os.path.join(self.radice, 'profili', 'prova') + '|/casa/prova|/kb/prova')
+        self.assertEqual(r.returncode, 3)
+
+    def test_cartella_inesistente(self):
+        r = self.esegui('prova', '--cartella', os.path.join(self.radice, 'manca'), 'compito')
+        self.assertEqual(r.returncode, 1)
+        self.assertNotIn('Traceback', r.stderr)
+
+
+class KbCollaudoTest(unittest.TestCase):
+    def setUp(self):
+        self.kb = tempfile.mkdtemp()
+        self.casa = tempfile.mkdtemp()
+        lungo = 'parola ' * 60
+        for nome, testo in (('a.md', '# A\n\n' + lungo + 'verifica uno\n'), ('b.md', '# B\n\nverifica due\n'),
+                            ('c.md', '## Sezione\n\nverifica tre\n'),
+                            ('d.md', '# D\n\n' + lungo + 'alfa ' + lungo + 'omega\n')):
+            with open(os.path.join(self.kb, nome), 'w') as f:
+                f.write(testo)
+
+    def tearDown(self):
+        shutil.rmtree(self.kb, ignore_errors=True)
+        shutil.rmtree(self.casa, ignore_errors=True)
+
+    def esegui(self, *argomenti, **k):
+        env = dict(os.environ, KB_DIR=self.kb, HOME=self.casa, PYTHONDONTWRITEBYTECODE='1')
+        env.pop('KB_DB', None)
+        return subprocess.run([sys.executable, KBPY] + list(argomenti), env=env, stdout=subprocess.PIPE,
+                              stderr=subprocess.PIPE, universal_newlines=True, **k)
+
+    def test_db_predefinito_in_cache(self):
+        self.assertEqual(self.esegui('indicizza').returncode, 0)
+        self.assertTrue(os.path.isfile(os.path.join(self.casa, '.cache', 'kb', 'indice.db')))
+
+    def test_kb_dir_predefinita(self):
+        with open(KBPY) as f:
+            self.assertIn("'/srv/kb'", f.read())
+
+    def test_cerca_con_n(self):
+        self.esegui('indicizza')
+        for argomenti in (('cerca', 'verifica', '-n', '1'), ('cerca', '-n', '1', 'verifica')):
+            r = self.esegui(*argomenti)
+            self.assertEqual(r.returncode, 0, r.stderr)
+            self.assertEqual(len(re.findall(r'(?m)^\S+\.md: ', r.stdout)), 1, r.stdout)
+
+    def test_salva_segreto_messaggio_e_uscita_1(self):
+        r = self.esegui('salva', '--agente', 'x', '--titolo', 'T', input='password: abc\n')
+        self.assertEqual(r.returncode, 1)
+        self.assertIn('segreto', r.stderr)
+        self.assertNotIn('Traceback', r.stderr)
+        self.assertFalse(os.path.exists(os.path.join(self.kb, 'inbox')))
+
+    def test_salva_senza_titolo_errore(self):
+        r = self.esegui('salva', '--agente', 'x', input='corpo\n')
+        self.assertNotEqual(r.returncode, 0)
+        self.assertFalse(os.path.exists(os.path.join(self.kb, 'inbox')))
+
+    def test_titolo_solo_da_riga_h1(self):
+        db = os.path.join(self.casa, 'i.db')
+        kb.indicizza(self.kb, db)
+        self.assertEqual(kb.cerca(db, 'tre')[0]['titolo'], 'c')
+
+    def test_estratto_con_snippet(self):
+        db = os.path.join(self.casa, 'i.db')
+        kb.indicizza(self.kb, db)
+        r = kb.cerca(db, 'alfa omega')
+        self.assertEqual([x['path'] for x in r], ['d.md'])
+        self.assertIn('alfa', r[0]['estratto'])
+        self.assertLess(len(r[0]['estratto']), 200)
+
+
+if __name__ == '__main__':
+    unittest.main()
+```
+  Verifica: `python3 -c "import ast; ast.parse(open('tests/test_collaudo1.py').read())"`
+
+- [ ] 11. KB: titolo, `cerca` con `snippet()` e riga di comando con argparse
+  File: `kb/kb.py`
+  Cosa fare: **non modificare il file a mano.** Esegui soltanto, dalla radice del progetto, questo comando:
+```
+python3 - <<'EOF'
+import re
+p = 'kb/kb.py'
+s = open(p).read()
+vecchio_titolo = s[s.index("            titolo = 'documento'\n"):s.index("            # Inserisci nella tabella FTS5\n")]
+s = s.replace(vecchio_titolo, '''            # Titolo: prima riga «# …», altrimenti il nome del file senza .md
+            titolo = os.path.splitext(os.path.basename(rel_path))[0]
+            for riga in testo.split('\\n'):
+                if riga.startswith('# '):
+                    titolo = riga[2:].strip()
+                    break
+
+''')
+inizio = s.index('def cerca(db, query, n=5):')
+fine = s.index("if __name__ == '__main__':")
+s = s[:inizio] + '''def cerca(db, query, n=5):
+    """Cerca nell'indice FTS5: lista di dict path, titolo, estratto (snippet di FTS5) in ordine di rank."""
+    conn = sqlite3.connect(db)
+    try:
+        righe = conn.execute(
+            "SELECT path, titolo, snippet(note, 2, '', '', '…', 16) FROM note WHERE note MATCH ? ORDER BY rank LIMIT ?",
+            (query, n)).fetchall()
+    finally:
+        conn.close()
+    return [{'path': p, 'titolo': t, 'estratto': e} for p, t, e in righe]
+
+
+def main(argv=None):
+    """Riga di comando: indicizza, cerca, leggi, salva (testo da stdin)."""
+    import argparse
+    ap = argparse.ArgumentParser(prog='kb', description='Knowledge base in Markdown')
+    sub = ap.add_subparsers(dest='comando', required=True)
+    sub.add_parser('indicizza', help="ricostruisce l'indice")
+    c = sub.add_parser('cerca', help='cerca nelle note')
+    c.add_argument('query')
+    c.add_argument('-n', type=int, default=5)
+    l = sub.add_parser('leggi', help='stampa una nota')
+    l.add_argument('nota')
+    s = sub.add_parser('salva', help='salva in inbox/ il testo letto da stdin')
+    s.add_argument('--agente', required=True)
+    s.add_argument('--titolo', required=True)
+    s.add_argument('--progetto')
+    a = ap.parse_args(argv)
+    kb_dir = os.environ.get('KB_DIR', '/srv/kb')
+    db = os.environ.get('KB_DB', os.path.expanduser('~/.cache/kb/indice.db'))
+    try:
+        if a.comando == 'indicizza':
+            print('note indicizzate: %d' % indicizza(kb_dir, db))
+        elif a.comando == 'cerca':
+            for r in cerca(db, a.query, a.n):
+                print('%s: %s' % (r['path'], r['titolo']))
+                print('  ' + ' '.join(r['estratto'].split()))
+        elif a.comando == 'leggi':
+            sys.stdout.write(leggi(kb_dir, a.nota))
+        else:
+            print(salva(kb_dir, a.agente, a.titolo, sys.stdin.read(), progetto=a.progetto))
+    except (ValueError, sqlite3.OperationalError) as e:
+        print('kb: %s' % e, file=sys.stderr)
+        return 1
+    return 0
+
+
+''' + s[fine:]
+open(p, 'w').write(s)
+EOF
+```
+  Verifica: `python3 -m unittest tests/test_kb.py && python3 -m unittest tests/test_collaudo1.py -k KbCollaudoTest`
+
+- [ ] 12. `agente`: ambiente completo, codice di uscita, cartella inesistente
+  File: `bin/agente`
+  Cosa fare: **non modificare il file a mano.** Esegui soltanto, dalla radice del progetto, questo comando:
+```
+python3 - <<'EOF'
+p = 'bin/agente'
+s = open(p).read()
+vecchio = '''    # Esegui il comando
+    subprocess.run(argv, env=env, cwd=cwd)
+'''
+assert vecchio in s
+s = s.replace(vecchio, '''    if not os.path.isdir(cwd):
+        print(f'errore: cartella inesistente: {cwd}', file=sys.stderr)
+        sys.exit(1)
+
+    # Esegui pi con l'ambiente corrente più PI_CODING_AGENT_DIR e ne restituisce il codice di uscita
+    sys.exit(subprocess.run(argv, env=dict(os.environ, **env), cwd=cwd).returncode)
+''')
+s = s.replace('import shutil\n', '', 1)
+open(p, 'w').write(s)
+EOF
+```
+  Verifica: `test -x bin/agente && python3 -m unittest tests/test_agente.py tests/test_collaudo1.py`
+
+- [ ] 13. Controllo finale del collaudo 1
+  File: nessuno (correggi solo ciò che i comandi segnalano)
+  Cosa fare: esegui tutti i test.
+  Verifica: `python3 -m unittest tests/test_kb.py tests/test_agente.py tests/test_collaudo1.py && ! grep -q KB_ODO kb/kb.py`
