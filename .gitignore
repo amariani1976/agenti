@@ -1,0 +1,6 @@
+# AI-VM
+.ai-vm/
+__pycache__/
+node_modules/
+.venv/
+.env
