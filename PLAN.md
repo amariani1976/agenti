@@ -146,7 +146,7 @@ if __name__ == '__main__':
   `-----BEGIN [A-Z ]*PRIVATE KEY-----`; se una corrisponde, `ValueError('il testo sembra contenere un segreto')`.
   Verifica: `python3 -m unittest tests/test_kb.py -k SalvaTest`
 
-- [ ] 3. KB: `leggi`
+- [x] 3. KB: `leggi`
   File: `kb/kb.py`
   Cosa fare: aggiungi `leggi(kb, nota)` come richiesto da `LeggiTest`: percorsi assoluti o che escono dalla KB (dopo `os.path.realpath`) danno `ValueError`.
   Verifica: `python3 -m unittest tests/test_kb.py -k LeggiTest`

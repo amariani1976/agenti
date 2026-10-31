@@ -133,11 +133,11 @@ def leggi(kb, path):
     Raises:
         ValueError: Se il percorso non è sicuro (fuori dalla KB).
     """
-    # Normalizza il percorso
-    percorso_assoluto = os.path.abspath(os.path.join(kb, path))
+    # Normalizza il percorso usando realpath per risolvere .. e link simbolici
+    percorso_assoluto = os.path.realpath(os.path.join(kb, path))
     
     # Verifica che il percorso sia dentro la KB
-    kb_abs = os.path.abspath(kb)
+    kb_abs = os.path.realpath(kb)
     if not percorso_assoluto.startswith(kb_abs + os.sep):
         raise ValueError('percorso non sicuro: fuori dalla knowledge base')
     
