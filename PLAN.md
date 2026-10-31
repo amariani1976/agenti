@@ -420,7 +420,7 @@ FINE
 ```
   Verifica: `python3 -m unittest tests/test_coda.py`
 
-- [ ] 5. Controllo finale
+- [x] 5. Controllo finale
   File: nessuno (correggi solo ciò che i comandi segnalano)
   Cosa fare: esegui tutti i test.
   Verifica: `python3 -m unittest tests/test_coda.py && python3 -m unittest discover -s tests -p 'test_*.py'`
