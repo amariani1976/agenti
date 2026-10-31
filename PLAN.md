@@ -138,7 +138,7 @@ if __name__ == '__main__':
 ```
   Verifica: `python3 -c "import ast; ast.parse(open('tests/test_kb.py').read())"`
 
-- [ ] 2. KB: `slug` e `salva`
+- [x] 2. KB: `slug` e `salva`
   File: `kb/kb.py` (nuovo)
   Cosa fare: crea `kb/kb.py` (docstring in italiano) con `slug(titolo)` e `salva(kb, agente, titolo, testo, progetto=None, oggi=None)` come richiesto dalla classe `SalvaTest` di `tests/test_kb.py` (leggila: è la specifica). `oggi` predefinito: data di oggi in formato AAAA-MM-GG. Il file si crea con `open(..., 'x')`; se il nome esiste prova `-2`, `-3`…
   Prima di creare qualsiasi cosa, `salva` chiama `controlla_segreti(testo)`: costante `SEGRETI` (lista di regex
