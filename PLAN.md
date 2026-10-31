@@ -426,7 +426,7 @@ FINE
 ```
   Verifica: `python3 -c "import ast; ast.parse(open('kb/servizio.py').read())" && grep -q "def do_POST" kb/servizio.py`
 
-- [ ] 7. Servizio: fonti, stato e git
+- [x] 7. Servizio: fonti, stato e git
   File: `kb/servizio.py`
   Cosa fare: scrivi `carica_fonti`, la classe `Kb` e `registra_git` (leggi `tests/test_servizio.py`, classe
   `ApiTest`, e la parte HTTP già nel file: è la specifica).

@@ -26,16 +26,56 @@ STRUMENTI = [
 ]
 def carica_fonti(cartella):
     """Ogni sottocartella di `cartella` è una fonte esterna in sola lettura; cartella assente → nessuna fonte."""
-    raise NotImplementedError
+    if not os.path.isdir(cartella):
+        return {}
+    fonti = {}
+    for nome in sorted(os.listdir(cartella)):
+        if nome.startswith('.'):
+            continue
+        percorso = os.path.join(cartella, nome)
+        if os.path.isdir(percorso):
+            fonti[nome] = percorso
+    return fonti
 
 
 class Kb:
     """Stato condiviso del servizio: cartelle, indice e lucchetto per le scritture (passo 7)."""
+    def __init__(self, kbdir, db, fonti=None, token=''):
+        self.kbdir = kbdir
+        self.db = db
+        self.fonti = fonti or {}
+        self.token = token
+        self.lucchetto = threading.Lock()
+        kb.indicizza(kbdir, db, self.fonti)
+
+    def cerca(self, query, n=5):
+        return kb.cerca(self.db, query, int(n))
+
+    def leggi(self, nota):
+        return kb.leggi(self.kbdir, nota, self.fonti)
+
+    def salva(self, agente, titolo, testo, progetto=None, extra=None):
+        with self.lucchetto:
+            rel = kb.salva(self.kbdir, agente, titolo, testo, progetto, extra)
+            registra_git(self.kbdir, rel, agente)
+            kb.indicizza(self.kbdir, self.db, self.fonti)
+        return rel
 
 
 def registra_git(kbdir, rel, agente):
     """Se la KB è un repository git, ogni salvataggio è un commit (annullabile)."""
-    raise NotImplementedError
+    gitdir = os.path.join(kbdir, '.git')
+    if not os.path.isdir(gitdir):
+        return False
+    try:
+        subprocess.run(['git', '-C', kbdir, 'add', '--', rel], check=True, capture_output=True)
+        subprocess.run(['git', '-C', kbdir, 'commit', '-q', '-m', 'kb: %s (%s)' % (rel, agente)],
+                       check=True, capture_output=True,
+                       env={'GIT_AUTHOR_NAME': agente, 'GIT_AUTHOR_EMAIL': 'kb@locale',
+                            'GIT_COMMITTER_NAME': 'kb', 'GIT_COMMITTER_EMAIL': 'kb@locale'})
+    except (subprocess.SubprocessError, OSError):
+        return False
+    return True
 
 
 def chiama_strumento(stato, nome, args):
