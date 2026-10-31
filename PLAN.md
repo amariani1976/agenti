@@ -262,7 +262,7 @@ EOF
 ```
   Verifica: `test -f profili/programmatore/skills/kb/SKILL.md && python3 -c "import json; json.load(open('profili/programmatore/models.json')); json.load(open('profili/programmatore/settings.json'))"`
 
-- [ ] 9. Controllo finale
+- [x] 9. Controllo finale
   File: nessuno (correggi solo ciò che i comandi segnalano)
   Cosa fare: esegui tutti i test.
   Verifica: `python3 -m unittest tests/test_kb.py tests/test_agente.py`
