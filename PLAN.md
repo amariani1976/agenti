@@ -3,6 +3,7 @@ stato: in-esecuzione
 ramo: ai/agenti-base
 modello: esecutore
 collaudi: 1
+aiuti: 1
 ---
 # Piano: parte 1 — comando `agente`, profilo «programmatore» e KB di base
 
@@ -394,7 +395,7 @@ if __name__ == '__main__':
 ```
   Verifica: `python3 -c "import ast; ast.parse(open('tests/test_collaudo1.py').read())"`
 
-- [ ] 11. KB: titolo, `cerca` con `snippet()` e riga di comando con argparse
+- [!] 11. KB: titolo, `cerca` con `snippet()` e riga di comando con argparse
   File: `kb/kb.py`
   Cosa fare: **non modificare il file a mano.** Esegui soltanto, dalla radice del progetto, questo comando:
 ```
