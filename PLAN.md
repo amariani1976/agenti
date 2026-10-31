@@ -283,7 +283,7 @@ if __name__ == '__main__':
 ```
   Verifica: `python3 -c "import ast; ast.parse(open('tests/test_servizio.py').read())"`
 
-- [ ] 6. Servizio: parte HTTP già pronta
+- [x] 6. Servizio: parte HTTP già pronta
   File: `kb/servizio.py` (nuovo)
   Cosa fare: **non scrivere il file a mano.** Esegui soltanto, dalla radice del progetto, questo comando: crea il
   file con la parte HTTP completa e quattro funzioni ancora da scrivere (passi 7 e 8).
