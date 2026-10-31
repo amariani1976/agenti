@@ -2,6 +2,7 @@
 stato: in-esecuzione
 ramo: ai/agenti-base
 modello: esecutore
+collaudi: 1
 ---
 # Piano: parte 1 — comando `agente`, profilo «programmatore» e KB di base
 
