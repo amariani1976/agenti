@@ -260,14 +260,38 @@ if __name__ == '__main__':
 ```
   Verifica: `python3 -c "import ast; ast.parse(open('tests/test_coda.py').read())"`
 
-- [!] 2. Stima dei token
+- [ ] 2. Stima dei token (già pronta)
   File: `coda/stima.py` (nuovo)
-  Cosa fare: crea `coda/stima.py` (docstring in italiano) con `MAX_RISPOSTA = 8192`, `testo(contenuto)` (stringa →
-  se stessa; lista → concatenazione dei campi `text` dei dict; altro → `''`) e `stima(corpo)`: caratteri di tutti i
-  `content` dei `messages` (tramite `testo`) + `len(str(corpo.get('prompt') or ''))` + `len(str(corpo.get('tools') or
-  ''))`; risultato `caratteri // 3 + risposta + 64`, dove `risposta` è `max_tokens`, altrimenti
-  `max_completion_tokens`, altrimenti `MAX_RISPOSTA`.
-  Verifica: `python3 -m unittest tests/test_coda.py -k StimaTest`
+  Cosa fare: **non scrivere il file a mano.** Esegui soltanto, dalla radice del progetto, questo comando. Non creare
+  né toccare `coda/ammissione.py` o `coda/proxy.py` (sono i passi 3 e 4): la verifica sotto li sostituisce con moduli
+  vuoti, quindi `ModuleNotFoundError: ammissione` qui non può più comparire.
+```
+mkdir -p coda
+cat > coda/stima.py <<'FINE'
+"""Stima dei token che servono a una richiesta OpenAI: caratteri // 3 + risposta massima + margine."""
+
+MAX_RISPOSTA = 8192
+
+
+def testo(contenuto):
+    """Testo di un campo `content`: stringa così com'è, lista di parti → concatenazione dei `text`, altro → ''."""
+    if isinstance(contenuto, str):
+        return contenuto
+    if isinstance(contenuto, list):
+        return ''.join(str(p.get('text') or '') for p in contenuto if isinstance(p, dict))
+    return ''
+
+
+def stima(corpo):
+    """Token stimati per la richiesta `corpo` (dict già decodificato dal JSON)."""
+    caratteri = sum(len(testo(m.get('content'))) for m in corpo.get('messages') or [] if isinstance(m, dict))
+    caratteri += len(str(corpo.get('prompt') or ''))
+    caratteri += len(str(corpo.get('tools') or ''))
+    risposta = corpo.get('max_tokens') or corpo.get('max_completion_tokens') or MAX_RISPOSTA
+    return caratteri // 3 + int(risposta) + 64
+FINE
+```
+  Verifica: `python3 -c "import sys, types, unittest; [sys.modules.setdefault(m, types.ModuleType(m)) for m in ('ammissione', 'proxy')]; sys.path.insert(0, 'tests'); import test_coda; r = unittest.TextTestRunner().run(unittest.defaultTestLoader.loadTestsFromTestCase(test_coda.StimaTest)); sys.exit(not r.wasSuccessful() or r.testsRun != 1)"`
 
 - [ ] 3. Coda: capacità e slot
   File: `coda/ammissione.py` (nuovo)
@@ -288,7 +312,8 @@ if __name__ == '__main__':
     bisogno`, `notify_all()`, restituisce `numero`;
   - `esci(biglietto)`: toglie da `attivi` (se c'è) e `notify_all()`;
   - `stato()` → `{'capacita', 'slot_max', 'attivi': len, 'in_uso': somma, 'in_attesa': len(attesa)}`.
-  Verifica: `python3 -m unittest tests/test_coda.py -k CodaTest`
+  Nota: `coda/proxy.py` non esiste ancora (passo 4): non crearlo; la verifica lo sostituisce con un modulo vuoto.
+  Verifica: `python3 -c "import sys, types, unittest; sys.modules.setdefault('proxy', types.ModuleType('proxy')); sys.path.insert(0, 'tests'); import test_coda; r = unittest.TextTestRunner().run(unittest.defaultTestLoader.loadTestsFromTestCase(test_coda.CodaTest)); sys.exit(not r.wasSuccessful() or r.testsRun != 6)"`
 
 - [ ] 4. Proxy HTTP (già pronto)
   File: `coda/proxy.py` (nuovo)
