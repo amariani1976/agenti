@@ -1,9 +1,10 @@
 ---
-stato: in-esecuzione
+stato: completato
 ramo: ai/agenti-base
 modello: esecutore
 verifica_globale: python3 -m unittest tests/test_kb.py tests/test_agente.py
 collaudi: 1
+collaudo: superato
 ---
 # Piano: parte 2 — KB come servizio (API JSON + MCP), fonti esterne, git, client
 
