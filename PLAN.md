@@ -19,7 +19,7 @@ Commenti e messaggi in italiano. Non usare git.
 
 ## Passi
 
-- [ ] 1. Test della KB
+- [x] 1. Test della KB
   File: `tests/test_kb.py` (nuovo)
   Cosa fare: crea `tests/test_kb.py` con **esattamente** questo contenuto, senza cambiare nulla:
 ```
