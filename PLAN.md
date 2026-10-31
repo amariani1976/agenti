@@ -3,7 +3,7 @@ stato: in-esecuzione
 ramo: ai/agenti-base
 modello: esecutore
 verifica_globale: python3 -m unittest tests/test_kb.py tests/test_agente.py tests/test_kb_fonti.py tests/test_servizio.py
-aiuti: 0
+aiuti: 1
 ---
 # Piano: parte 4 — strumenti degli agenti: client della KB e ricerca su internet
 
@@ -110,7 +110,7 @@ if __name__ == '__main__':
 ```
   Verifica: `python3 -c "import ast; ast.parse(open('tests/test_cliente.py').read())"`
 
-- [ ] 2. `kb.py`: modalità client e `--campo`
+- [!] 2. `kb.py`: modalità client e `--campo`
   File: `kb/kb.py`
   Cosa fare: in `main()`:
   - `salva` accetta `--campo CHIAVE=VALORE` ripetibile (`action='append'`), passato come `extra`;
