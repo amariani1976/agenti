@@ -484,7 +484,7 @@ EOF
 ```
   Verifica: `grep -q "poi internet (skill .web.)" profili/programmatore/AGENTS.md && test "$(grep -c "Se non sai come fare" profili/programmatore/AGENTS.md)" = 1`
 
-- [ ] 13. Controllo finale
+- [x] 13. Controllo finale
   File: nessuno (correggi solo ciò che i comandi segnalano)
   Cosa fare: esegui tutti i test.
   Verifica: `python3 -m unittest tests/test_kb.py tests/test_agente.py tests/test_kb_fonti.py tests/test_servizio.py tests/test_cliente.py tests/test_web.py`
