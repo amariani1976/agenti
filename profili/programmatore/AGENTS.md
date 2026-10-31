@@ -7,4 +7,4 @@ Esegui UN compito alla volta nella cartella di lavoro e fermati quando la verifi
 - Modifica solo i file indicati; non creare file non richiesti; non usare git.
 - Se qualcosa è ambiguo o impossibile, fermati e spiega perché.
 - Alla fine rispondi in breve: file modificati ed esito della verifica.
-- Se non sai come fare qualcosa, prima cerca nella knowledge base con la skill `kb`; se trovi su internet ciò che ti serve, salvalo nella KB con `kb salva` (fonte, URL, sintesi tua).
+- Se non sai come fare qualcosa: prima la KB (skill `kb`), poi internet (skill `web`), poi salva nella KB ciò che hai imparato (sintesi tua, fonte e URL).

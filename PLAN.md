@@ -469,7 +469,7 @@ EOF
 ```
   Verifica: `grep -q "^name: web$" profili/programmatore/skills/web/SKILL.md && grep -q "aggiorna=<percorso>" profili/programmatore/skills/web/SKILL.md`
 
-- [ ] 12. Istruzioni del programmatore
+- [x] 12. Istruzioni del programmatore
   File: `profili/programmatore/AGENTS.md`
   Cosa fare: sostituisce l'ultima riga («- Se non sai come fare qualcosa…») con quella che cita anche la skill
   `web`. **Non scrivere a mano**: esegui soltanto, dalla radice del progetto, questo comando:
