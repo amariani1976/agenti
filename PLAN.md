@@ -457,7 +457,7 @@ if __name__ == '__main__':
   eseguibile (`chmod 755 web/web.py`).
   Verifica: `test -x web/web.py && python3 -m unittest tests/test_web.py`
 
-- [ ] 11. Skill `web`
+- [x] 11. Skill `web`
   File: `profili/programmatore/skills/web/SKILL.md` (nuovo)
   Cosa fare: **non scrivere il file a mano.** Esegui soltanto, dalla radice del progetto, questo comando:
 ```
