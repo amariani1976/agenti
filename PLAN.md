@@ -1,9 +1,10 @@
 ---
-stato: in-esecuzione
+stato: completato
 ramo: ai/agenti-base
 modello: esecutore
 collaudi: 2
 aiuti: 1
+collaudo: superato
 ---
 # Piano: parte 1 — comando `agente`, profilo «programmatore» e KB di base
 
