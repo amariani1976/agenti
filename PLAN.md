@@ -418,7 +418,7 @@ EOF
 ```
   Verifica: `python3 -m unittest tests/test_collaudo1.py -k test_titolo_solo_da_riga_h1 && python3 -m unittest tests/test_kb.py -k IndiceTest`
 
-- [ ] 12. KB: `cerca` con `snippet()` di FTS5
+- [x] 12. KB: `cerca` con `snippet()` di FTS5
   File: `kb/kb.py`
   Cosa fare: **non modificare il file a mano.** Esegui soltanto, dalla radice del progetto, questo comando, che
   sostituisce la sola funzione `cerca` (da `def cerca` a `def main`; il resto del file resta com'è). Le righe

@@ -222,63 +222,15 @@ def indicizza(kb, db):
 
 
 def cerca(db, query, n=5):
-    """Cerca documenti nell'indice FTS5.
-    
-    Restituisce i risultati in ordine di rank, con estratto generato manualmente.
-    
-    Args:
-        db: Percorso del file del database.
-        query: Termine di ricerca.
-        n: Numero massimo di risultati (default: 5).
-        
-    Returns:
-        Lista di dizionari con path, titolo e estratto.
-    """
+    """Cerca nell'indice FTS5: lista di dict path, titolo, estratto (snippet di FTS5) in ordine di rank."""
     conn = sqlite3.connect(db)
-    c = conn.cursor()
-    
-    risultati = []
-    
     try:
-        # Cerca usando FTS5, ordinando per rank
-        c.execute('''
-            SELECT path, titolo, testo
-            FROM note
-            WHERE note MATCH ?
-            ORDER BY rank
-            LIMIT ?
-        ''', (query, n))
-        
-        for riga in c.fetchall():
-            path, titolo, testo = riga
-            
-            # Genera estratto manualmente (snippet equivalente)
-            estratto = ''
-            idx = testo.lower().find(query.lower())
-            if idx >= 0:
-                # Prendi 50 caratteri prima e dopo
-                start = max(0, idx - 50)
-                end = min(len(testo), idx + len(query) + 50)
-                estratto = testo[start:end]
-                # Aggiungi ... se necessario
-                if start > 0:
-                    estratto = '...' + estratto
-                if end < len(testo):
-                    estratto = estratto + '...'
-            else:
-                estratto = testo[:200]
-            
-            risultati.append({
-                'path': path,
-                'titolo': titolo,
-                'estratto': estratto
-            })
-    except sqlite3.OperationalError:
-        # FTS5 non esiste, torna lista vuota
-        pass
-    
-    conn.close()
-    return risultati
+        righe = conn.execute(
+            "SELECT path, titolo, snippet(note, 2, '', '', '…', 16) FROM note WHERE note MATCH ? ORDER BY rank LIMIT ?",
+            (query, n)).fetchall()
+    finally:
+        conn.close()
+    return [{'path': p, 'titolo': t, 'estratto': e} for p, t, e in righe]
 
 
 def main():
