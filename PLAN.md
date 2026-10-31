@@ -3,6 +3,7 @@ stato: in-esecuzione
 ramo: ai/agenti-base
 modello: esecutore
 verifica_globale: python3 -m unittest tests/test_kb.py tests/test_agente.py tests/test_kb_fonti.py tests/test_servizio.py
+aiuti: 1
 ---
 # Piano: parte 4 — strumenti degli agenti: client della KB e ricerca su internet
 
@@ -21,7 +22,7 @@ pytest). Commenti e messaggi in italiano. Non usare git.
 
 ## Passi
 
-- [ ] 1. Test del client
+- [!] 1. Test del client
   File: `tests/test_cliente.py` (nuovo)
   Cosa fare: crea `tests/test_cliente.py` con **esattamente** questo contenuto, senza cambiare nulla:
 ```
