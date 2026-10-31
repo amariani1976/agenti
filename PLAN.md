@@ -456,7 +456,7 @@ FINE
     → `error` `{'code': -32601, 'message': 'metodo sconosciuto'}`.
   Verifica: `python3 -m unittest tests/test_servizio.py`
 
-- [ ] 9. Controllo finale
+- [x] 9. Controllo finale
   File: nessuno (correggi solo ciò che i comandi segnalano)
   Cosa fare: esegui tutti i test.
   Verifica: `python3 -m unittest tests/test_kb.py tests/test_agente.py tests/test_kb_fonti.py tests/test_servizio.py`
