@@ -122,7 +122,7 @@ if __name__ == '__main__':
   stessi controlli di sicurezza di prima (niente percorsi assoluti, niente uscite dalla cartella dopo `realpath`).
   Verifica: `python3 -m unittest tests/test_kb_fonti.py -k test_leggi && python3 -m unittest tests/test_kb.py`
 
-- [ ] 4. `kb.py`: campi extra e segreti nel titolo
+- [x] 4. `kb.py`: campi extra e segreti nel titolo
   File: `kb/kb.py`
   Cosa fare: aggiungi a `salva` il parametro `extra=None` (dict): ogni coppia diventa una riga `chiave: valore`
   nell'intestazione, dopo `data:`. Chiave valida solo se `^[a-z][a-z0-9_-]*$` e valore senza a capo, altrimenti

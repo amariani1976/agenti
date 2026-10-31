@@ -90,9 +90,9 @@ def salva(kb, agente, titolo, testo, progetto=None, oggi=None, extra=None):
     
     # Controlla e valida extra
     if extra:
-        # Chiavi valide: solo alfanumeriche e underscore, nessun newline
+        # Chiavi valide: ^[a-z][a-z0-9_-]*$, nessun newline
         for chiave, valore in extra.items():
-            if not re.match(r'^[a-zA-Z0-9_]+$', chiave):
+            if not re.match(r'^[a-z][a-z0-9_-]*$', chiave):
                 raise ValueError('chiave non valida in extra')
             if '\n' in str(valore):
                 raise ValueError('valore in extra contiene newline')
