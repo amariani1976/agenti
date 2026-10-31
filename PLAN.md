@@ -110,18 +110,118 @@ if __name__ == '__main__':
 ```
   Verifica: `python3 -c "import ast; ast.parse(open('tests/test_cliente.py').read())"`
 
-- [!] 2. `kb.py`: modalità client e `--campo`
+- [ ] 2. `servizio.py`: `extra` passato per nome
+  File: `kb/servizio.py`
+  Cosa fare: in `Kb.salva` la chiamata `kb.salva(self.kbdir, agente, titolo, testo, progetto, extra)` passa `extra`
+  al posto di `oggi` (il nome del file diventa il dizionario). **Non scrivere a mano**: esegui soltanto, dalla
+  radice del progetto:
+```
+sed -i 's/kb.salva(self.kbdir, agente, titolo, testo, progetto, extra)/kb.salva(self.kbdir, agente, titolo, testo, progetto, extra=extra)/' kb/servizio.py
+```
+  Verifica: `grep -q "progetto, extra=extra)" kb/servizio.py && python3 -m unittest tests/test_servizio.py`
+
+- [ ] 3. `kb.py`: modalità client e `--campo`
   File: `kb/kb.py`
-  Cosa fare: in `main()`:
-  - `salva` accetta `--campo CHIAVE=VALORE` ripetibile (`action='append'`), passato come `extra`;
-  - se è impostata `KB_URL`, `cerca`, `leggi` e `salva` chiamano il servizio invece dei file: `GET
-    KB_URL/cerca?q=…&n=…` (campo `risultati`), `GET KB_URL/leggi?nota=…` (campo `testo`), `POST KB_URL/salva` con JSON
-    `agente`, `titolo`, `testo`, `progetto`, `extra` (campo `path`); intestazione `Authorization: Bearer <KB_TOKEN>`;
-    usa `urllib.request` con timeout 30. Un errore HTTP diventa `ValueError` col campo `errore` della risposta;
-    `ValueError` e `OSError` (servizio spento) → `kb: <messaggio>` su stderr e uscita 1. L'output resta quello di prima.
+  Cosa fare: sostituisce `main()` con una versione che accetta `--campo CHIAVE=VALORE` (ripetibile) in `salva` e,
+  se è impostata `KB_URL`, usa il servizio (`_servizio()`, con `KB_TOKEN`) per `cerca`, `leggi` e `salva`.
+  **Non scrivere il codice a mano**: esegui soltanto, dalla radice del progetto, questo comando (riscrive da
+  `def main(argv=None):` fino a `if __name__ == '__main__':`, il resto del file non cambia):
+```
+python3 - <<'FINE'
+p = 'kb/kb.py'
+s = open(p).read()
+i = s.index('def main(argv=None):')
+j = s.index("if __name__ == '__main__':")
+nuovo = '''def _servizio(metodo, percorso, dati=None):
+    """Chiama il servizio della KB (KB_URL, KB_TOKEN) e restituisce la risposta JSON."""
+    import json
+    import urllib.error
+    import urllib.request
+    url = os.environ['KB_URL'].rstrip('/') + percorso
+    intestazioni = {'Authorization': 'Bearer ' + os.environ.get('KB_TOKEN', '')}
+    corpo = None
+    if dati is not None:
+        corpo = json.dumps(dati).encode('utf-8')
+        intestazioni['Content-Type'] = 'application/json'
+    richiesta = urllib.request.Request(url, data=corpo, headers=intestazioni, method=metodo)
+    try:
+        with urllib.request.urlopen(richiesta, timeout=30) as r:
+            return json.loads(r.read().decode('utf-8'))
+    except urllib.error.HTTPError as e:
+        try:
+            errore = json.loads(e.read().decode('utf-8')).get('errore')
+        except ValueError:
+            errore = None
+        raise ValueError(errore or 'errore HTTP %d' % e.code)
+
+
+def main(argv=None):
+    """Riga di comando: indicizza, cerca, leggi, salva (testo da stdin).
+    Con KB_URL impostata cerca, leggi e salva usano il servizio invece dei file."""
+    import argparse
+    import urllib.parse
+    ap = argparse.ArgumentParser(prog='kb', description='Knowledge base in Markdown')
+    sub = ap.add_subparsers(dest='comando', required=True)
+    sub.add_parser('indicizza', help="ricostruisce l'indice")
+    c = sub.add_parser('cerca', help='cerca nelle note')
+    c.add_argument('query')
+    c.add_argument('-n', type=int, default=5)
+    l = sub.add_parser('leggi', help='stampa una nota')
+    l.add_argument('nota')
+    s = sub.add_parser('salva', help='salva in inbox/ il testo letto da stdin')
+    s.add_argument('--agente', required=True)
+    s.add_argument('--titolo', required=True)
+    s.add_argument('--progetto')
+    s.add_argument('--campo', action='append', default=[], metavar='CHIAVE=VALORE',
+                   help='campo in più nell\\'intestazione (ripetibile)')
+    a = ap.parse_args(argv)
+    kb_dir = os.environ.get('KB_DIR', '/srv/kb')
+    db = os.environ.get('KB_DB', os.path.expanduser('~/.cache/kb/indice.db'))
+    remoto = bool(os.environ.get('KB_URL'))
+    try:
+        if a.comando == 'indicizza':
+            print('note indicizzate: %d' % indicizza(kb_dir, db))
+        elif a.comando == 'cerca':
+            if remoto:
+                q = urllib.parse.urlencode({'q': a.query, 'n': a.n})
+                risultati = _servizio('GET', '/cerca?' + q)['risultati']
+            else:
+                risultati = cerca(db, a.query, a.n)
+            for r in risultati:
+                print('%s: %s' % (r['path'], r['titolo']))
+                print('  ' + ' '.join(r['estratto'].split()))
+        elif a.comando == 'leggi':
+            if remoto:
+                q = urllib.parse.urlencode({'nota': a.nota})
+                sys.stdout.write(_servizio('GET', '/leggi?' + q)['testo'])
+            else:
+                sys.stdout.write(leggi(kb_dir, a.nota))
+        else:
+            extra = {}
+            for campo in a.campo:
+                chiave, uguale, valore = campo.partition('=')
+                if not uguale:
+                    raise ValueError('campo non valido (serve CHIAVE=VALORE): %s' % campo)
+                extra[chiave] = valore
+            testo = sys.stdin.read()
+            if remoto:
+                print(_servizio('POST', '/salva', {'agente': a.agente, 'titolo': a.titolo, 'testo': testo,
+                                                   'progetto': a.progetto, 'extra': extra or None})['path'])
+            else:
+                print(salva(kb_dir, a.agente, a.titolo, testo, progetto=a.progetto, extra=extra or None))
+    except (ValueError, OSError, sqlite3.OperationalError) as e:
+        print('kb: %s' % e, file=sys.stderr)
+        return 1
+    return 0
+
+
+'''
+open(p, 'w').write(s[:i] + nuovo + s[j:])
+FINE
+```
   Verifica: `python3 -m unittest tests/test_cliente.py && python3 -m unittest tests/test_kb.py`
 
-- [ ] 3. Test di `web.py`
+- [ ] 4. Test di `web.py`
   File: `tests/test_web.py` (nuovo)
   Cosa fare: crea `tests/test_web.py` con **esattamente** questo contenuto, senza cambiare nulla:
 ```
@@ -296,7 +396,7 @@ if __name__ == '__main__':
 ```
   Verifica: `python3 -c "import ast; ast.parse(open('tests/test_web.py').read())"`
 
-- [ ] 4. `web.py`: costanti, scaricamento ed estrazione del testo
+- [ ] 5. `web.py`: costanti, scaricamento ed estrazione del testo
   File: `web/web.py` (nuovo)
   Cosa fare: crea `web/web.py` (docstring in italiano; import: `argparse`, `html.parser`, `ipaddress`, `json`, `os`,
   `socket`, `sys`, `time`, `urllib.error`, `urllib.parse`, `urllib.request`) con:
@@ -312,13 +412,13 @@ if __name__ == '__main__':
     `HTTPError` si tratta come risposta; restituisce `(codice, dict(intestazioni), corpo in byte letto fino a massimo)`.
   Verifica: `python3 -m unittest tests/test_web.py -k EstraiTest`
 
-- [ ] 5. `web.py`: indirizzi permessi
+- [ ] 6. `web.py`: indirizzi permessi
   File: `web/web.py`
   Cosa fare: aggiungi `indirizzo_permesso(host, risolvi=socket.getaddrinfo)` come richiesto da `IndirizziTest`:
   risolve il nome (errore → `False`); `True` solo se **tutti** gli indirizzi sono `is_global` e non multicast.
   Verifica: `python3 -m unittest tests/test_web.py -k IndirizziTest`
 
-- [ ] 6. `web.py`: limiti d'uso
+- [ ] 7. `web.py`: limiti d'uso
   File: `web/web.py`
   Cosa fare: aggiungi `conta(tipo, file=None, ora=None, limiti=None, finestra=FINESTRA)` come richiesto da
   `LimitiTest`: file JSON `{tipo: [istanti]}` (predefinito `~/.cache/web/usi.json`, file rovinato = vuoto), tiene
@@ -326,7 +426,7 @@ if __name__ == '__main__':
   aggiunge `ora` e riscrive il file (crea la cartella se manca).
   Verifica: `python3 -m unittest tests/test_web.py -k LimitiTest`
 
-- [ ] 7. `web.py`: ricerca
+- [ ] 8. `web.py`: ricerca
   File: `web/web.py`
   Cosa fare: aggiungi `cerca(query, n=5, base=None, scarica=scarica)` come richiesto da `CercaTest`: URL
   `<base>/search?` + `urlencode({'q': query, 'format': 'json', 'categories': 'general,it'})` (base: argomento, poi
@@ -335,7 +435,7 @@ if __name__ == '__main__':
   compattati, al massimo 300 caratteri).
   Verifica: `python3 -m unittest tests/test_web.py -k CercaTest`
 
-- [ ] 8. `web.py`: lettura delle pagine
+- [ ] 9. `web.py`: lettura delle pagine
   File: `web/web.py`
   Cosa fare: aggiungi `leggi(url, max_car=MAX_CAR, scarica=scarica, risolvi=socket.getaddrinfo)` come richiesto da
   `LeggiTest`. Al massimo 6 giri; a ogni giro: solo `http`/`https` con nome dell'host, niente utente o password
@@ -348,7 +448,7 @@ if __name__ == '__main__':
   Troppi giri → `ValueError('troppi reindirizzamenti')`.
   Verifica: `python3 -m unittest tests/test_web.py -k LeggiTest`
 
-- [ ] 9. `web.py`: riga di comando
+- [ ] 10. `web.py`: riga di comando
   File: `web/web.py`
   Cosa fare: aggiungi `main(argv=None)` con argparse (`prog='web'`): `cerca QUERY [-n N]` e `leggi URL`. Prima di
   tutto `conta(<comando>, os.environ.get('WEB_USI'))`. `cerca` stampa per ogni risultato titolo, poi URL e estratto
@@ -357,7 +457,7 @@ if __name__ == '__main__':
   eseguibile (`chmod 755 web/web.py`).
   Verifica: `test -x web/web.py && python3 -m unittest tests/test_web.py`
 
-- [ ] 10. Skill `web` e istruzioni del programmatore
+- [ ] 11. Skill `web` e istruzioni del programmatore
   File: `profili/programmatore/skills/web/SKILL.md` (nuovo), `profili/programmatore/AGENTS.md`
   Cosa fare: **non scrivere i file a mano.** Esegui soltanto, dalla radice del progetto, questo comando:
 ```
@@ -374,7 +474,7 @@ EOF
 ```
   Verifica: `grep -q "name: web" profili/programmatore/skills/web/SKILL.md && grep -q "skill \`web\`" profili/programmatore/AGENTS.md`
 
-- [ ] 11. Controllo finale
+- [ ] 12. Controllo finale
   File: nessuno (correggi solo ciò che i comandi segnalano)
   Cosa fare: esegui tutti i test.
   Verifica: `python3 -m unittest tests/test_kb.py tests/test_agente.py tests/test_kb_fonti.py tests/test_servizio.py tests/test_cliente.py tests/test_web.py`
