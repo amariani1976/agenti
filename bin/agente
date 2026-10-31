@@ -1,0 +1,150 @@
+#!/usr/bin/env python3
+"""Esecutore del comando agente: avvia pi con un profilo specifico."""
+import os
+import re
+import shutil
+import subprocess
+import sys
+
+# Predefiniti
+DEFAULT_PI = os.path.expanduser('~/.local/bin/pi')
+# La radice è la cartella sopra bin/
+DEFAULT_RADICE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+# Regex per nome valido: inizia con lettera minuscola, poi 0-40 caratteri (lettera minuscola, cifra, trattino)
+NOME_VALIDO = re.compile(r'^[a-z][a-z0-9-]{0,40}$')
+
+
+def _profilo_dir(radice, nome):
+    """Restituisce il percorso della cartella del profilo."""
+    return os.path.join(radice, 'profili', nome)
+
+
+def _strumenti(radice, nome):
+    """Legge gli strumenti dal file strumenti del profilo."""
+    path = os.path.join(_profilo_dir(radice, nome), 'strumenti')
+    if not os.path.exists(path):
+        return []
+    with open(path, 'r') as f:
+        return [s.strip() for s in f.read().strip().split(',') if s.strip()]
+
+
+def _skills(radice, nome):
+    """Restituisce la lista delle skill (cartelle con SKILL.md) in ordine alfabetico."""
+    skills_dir = os.path.join(_profilo_dir(radice, nome), 'skills')
+    if not os.path.isdir(skills_dir):
+        return []
+    result = []
+    for entry in os.listdir(skills_dir):
+        path = os.path.join(skills_dir, entry)
+        if os.path.isdir(path) and os.path.exists(os.path.join(path, 'SKILL.md')):
+            result.append((entry, path))
+    # Ordina per nome (prima parte del percorso)
+    result.sort(key=lambda x: x[0])
+    return [p for _, p in result]
+
+
+def comando(nome, compito, cartella, radice, pi=DEFAULT_PI):
+    """
+    Costruisce il comando per eseguire pi con il profilo specificato.
+
+    Args:
+        nome: nome del profilo (deve essere valido)
+        compito: il compito da eseguire
+        cartella: cartella di lavoro (cwd)
+        radice: radice del progetto (dove si trovano i profili)
+        pi: percorso al programma pi (default: DEFAULT_PI)
+
+    Returns:
+        tuple (argv, env, cwd) dove:
+        - argv: lista di argomenti per subprocess.run
+        - env: dizionario delle variabili d'ambiente
+        - cwd: cartella di lavoro
+
+    Raises:
+        ValueError: se il nome non è valido o il profilo non esiste
+    """
+    # Validazione nome
+    if not NOME_VALIDO.match(nome):
+        raise ValueError(f"nome non valido: '{nome}' (deve corrispondere a {NOME_VALIDO.pattern})")
+
+    profilo = _profilo_dir(radice, nome)
+    if not os.path.isdir(profilo):
+        raise ValueError(f"profilo non esistente: '{nome}'")
+
+    # Costruisci argv
+    argv = [pi, '-p', '--no-session', '--no-skills']
+
+    # Aggiungi skill in ordine alfabetico
+    for skill_path in _skills(radice, nome):
+        argv.extend(['--skill', skill_path])
+
+    # Aggiungi strumenti
+    tools = _strumenti(radice, nome)
+    if tools:
+        argv.extend(['--tools', ','.join(tools)])
+
+    # Aggiungi il compito
+    argv.append(' '.join(compito) if isinstance(compito, list) else compito)
+
+    # Ambiente con solo PI_CODING_AGENT_DIR
+    env = {'PI_CODING_AGENT_DIR': profilo}
+
+    return argv, env, cartella
+
+
+def main():
+    """Main: parse degli argomenti e esecuzione del comando."""
+    # Parse manuale degli argomenti
+    args = sys.argv[1:]
+
+    cartella = None
+    nome = None
+    compito = []
+
+    i = 0
+    while i < len(args):
+        arg = args[i]
+        if arg == '--cartella':
+            if i + 1 >= len(args):
+                print('errore: --cartella richiede un argomento', file=sys.stderr)
+                sys.exit(1)
+            cartella = args[i + 1]
+            i += 2
+        else:
+            # Il primo argomento non flag è il nome, il resto è il compito
+            if nome is None:
+                nome = arg
+                i += 1
+            else:
+                compito.append(arg)
+                i += 1
+
+    if nome is None:
+        print('errore: nome del profilo richiesto', file=sys.stderr)
+        sys.exit(1)
+
+    if not compito:
+        print('errore: compito richiesto', file=sys.stderr)
+        sys.exit(1)
+
+    # Determina la radice (default: cartella sopra bin/)
+    radice = os.environ.get('AGENTE_RADICE', DEFAULT_RADICE)
+    pi = os.environ.get('AGENTE_PI', DEFAULT_PI)
+
+    # Se --cartella non specificato, usa la cartella corrente
+    if cartella is None:
+        cartella = os.getcwd()
+
+    try:
+        argv, env, cwd = comando(nome, compito, cartella, radice, pi)
+    except ValueError as e:
+        print(f'errore: {e}', file=sys.stderr)
+        sys.exit(1)
+
+    # Esegui il comando
+    subprocess.run(argv, env=env, cwd=cwd)
+
+
+if __name__ == '__main__':
+    main()
