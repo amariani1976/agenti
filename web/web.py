@@ -185,6 +185,32 @@ def estrai(pagina):
     return parser.titolo, parser.get_testo()
 
 
+def indirizzo_permesso(host, risolvi=socket.getaddrinfo):
+    """Verifica se un host ha solo indirizzi pubblici.
+
+    Args:
+        host: nome da risolvere.
+        risolvi: funzione di risoluzione (default socket.getaddrinfo).
+
+    Returns:
+        True se il nome non esiste o non ha indirizzi pubblici,
+        False se tutti gli indirizzi sono globali e non multicast.
+    """
+    try:
+        risultati = risolvi(host, 0)
+    except (socket.gaierror, OSError):
+        return False
+
+    for _famiglia, _tipo, _proto, _, (host_addr, _) in risultati:
+        try:
+            addr = ipaddress.ip_address(host_addr)
+        except ValueError:
+            return False
+        if not addr.is_global or addr.is_multicast:
+            return False
+    return True
+
+
 def scarica(url, timeout=15, massimo=2 << 20):
     """Scarica una pagina web senza redirect automatici.
 

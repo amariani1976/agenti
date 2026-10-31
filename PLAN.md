@@ -412,7 +412,7 @@ if __name__ == '__main__':
     `HTTPError` si tratta come risposta; restituisce `(codice, dict(intestazioni), corpo in byte letto fino a massimo)`.
   Verifica: `python3 -m unittest tests/test_web.py -k EstraiTest`
 
-- [ ] 6. `web.py`: indirizzi permessi
+- [x] 6. `web.py`: indirizzi permessi
   File: `web/web.py`
   Cosa fare: aggiungi `indirizzo_permesso(host, risolvi=socket.getaddrinfo)` come richiesto da `IndirizziTest`:
   risolve il nome (errore → `False`); `True` solo se **tutti** gli indirizzi sono `is_global` e non multicast.
