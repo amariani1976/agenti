@@ -56,7 +56,7 @@ class Kb:
 
     def salva(self, agente, titolo, testo, progetto=None, extra=None):
         with self.lucchetto:
-            rel = kb.salva(self.kbdir, agente, titolo, testo, progetto, extra)
+            rel = kb.salva(self.kbdir, agente, titolo, testo, progetto, extra=extra)
             registra_git(self.kbdir, rel, agente)
             kb.indicizza(self.kbdir, self.db, self.fonti)
         return rel

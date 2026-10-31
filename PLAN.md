@@ -110,7 +110,7 @@ if __name__ == '__main__':
 ```
   Verifica: `python3 -c "import ast; ast.parse(open('tests/test_cliente.py').read())"`
 
-- [ ] 2. `servizio.py`: `extra` passato per nome
+- [x] 2. `servizio.py`: `extra` passato per nome
   File: `kb/servizio.py`
   Cosa fare: in `Kb.salva` la chiamata `kb.salva(self.kbdir, agente, titolo, testo, progetto, extra)` passa `extra`
   al posto di `oggi` (il nome del file diventa il dizionario). **Non scrivere a mano**: esegui soltanto, dalla
