@@ -156,7 +156,7 @@ if __name__ == '__main__':
   Cosa fare: aggiungi `indicizza(kb, db)` e `cerca(db, query, n=5)` come richiesto da `IndiceTest`: tabella FTS5 `note(path UNINDEXED, titolo, testo)` ricreata da zero a ogni indicizzazione; solo file `.md`; salta le cartelle che iniziano con `.`; titolo = prima riga `# …`, altrimenti nome del file senza `.md`; `cerca` restituisce dict `path`, `titolo`, `estratto` (usa `snippet()` di FTS5) in ordine di `rank`. Crea la cartella di `db` se manca.
   Verifica: `python3 -m unittest tests/test_kb.py -k IndiceTest`
 
-- [ ] 5. KB: riga di comando
+- [x] 5. KB: riga di comando
   File: `kb/kb.py`
   Cosa fare: aggiungi `main()` con argparse e i comandi `indicizza`, `cerca QUERY [-n N]`, `leggi NOTA`, `salva --agente --titolo [--progetto]` (testo da stdin, stampa il percorso creato). `KB_DIR` predefinita `/srv/kb`, `KB_DB` predefinita `~/.cache/kb/indice.db`. `ValueError` → messaggio su stderr e uscita 1. In fondo `if __name__ == '__main__': sys.exit(main())`.
   Verifica: `python3 -m unittest tests/test_kb.py`
