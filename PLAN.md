@@ -523,7 +523,7 @@ EOF
 ```
   Verifica: `test -x bin/agente && python3 -m unittest tests/test_agente.py tests/test_collaudo1.py`
 
-- [ ] 15. Controllo finale del collaudo 1
+- [x] 15. Controllo finale del collaudo 1
   File: nessuno (correggi solo ciò che i comandi segnalano)
   Cosa fare: esegui tutti i test.
   Verifica: `python3 -m unittest tests/test_kb.py tests/test_agente.py tests/test_collaudo1.py && ! grep -q KB_ODO kb/kb.py`
