@@ -3,7 +3,7 @@ stato: in-esecuzione
 ramo: ai/agenti-base
 modello: esecutore
 verifica_globale: python3 -m unittest tests/test_kb.py tests/test_agente.py tests/test_kb_fonti.py tests/test_servizio.py
-aiuti: 1
+aiuti: 2
 ---
 # Piano: parte 4 — strumenti degli agenti: client della KB e ricerca su internet
 
@@ -457,7 +457,7 @@ if __name__ == '__main__':
   eseguibile (`chmod 755 web/web.py`).
   Verifica: `test -x web/web.py && python3 -m unittest tests/test_web.py`
 
-- [ ] 11. Skill `web` e istruzioni del programmatore
+- [!] 11. Skill `web` e istruzioni del programmatore
   File: `profili/programmatore/skills/web/SKILL.md` (nuovo), `profili/programmatore/AGENTS.md`
   Cosa fare: **non scrivere i file a mano.** Esegui soltanto, dalla radice del progetto, questo comando:
 ```
