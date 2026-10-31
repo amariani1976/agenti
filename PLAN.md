@@ -115,7 +115,7 @@ if __name__ == '__main__':
   frase tra virgolette (`"llama-swap" "OR"`), query vuota → `[]`; ogni risultato ha anche la chiave `fonte`.
   Verifica: `python3 -m unittest tests/test_kb_fonti.py -k test_indicizza_con_fonti -k test_senza_fonti_come_prima -k test_cerca_parole_strane && python3 -m unittest tests/test_kb.py`
 
-- [ ] 3. `kb.py`: lettura dalle fonti
+- [x] 3. `kb.py`: lettura dalle fonti
   File: `kb/kb.py`
   Cosa fare: cambia `leggi(kb, nota, fonti=None)`: se `nota` inizia con `@`, `@nome/resto` si legge da
   `fonti[nome]` (nome assente o `fonti` mancante → `ValueError`), altrimenti dalla KB; per entrambe valgono gli
