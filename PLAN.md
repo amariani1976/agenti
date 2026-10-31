@@ -19,7 +19,7 @@ specifica. Comando: `python3 -m unittest tests/test_coda.py` (niente pytest). Co
 
 ## Passi
 
-- [ ] 1. Test della coda
+- [x] 1. Test della coda
   File: `tests/test_coda.py` (nuovo)
   Cosa fare: crea `tests/test_coda.py` con **esattamente** questo contenuto, senza cambiare nulla:
 ```
