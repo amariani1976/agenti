@@ -21,7 +21,7 @@ codice del servizio, nei test). Non toccare `tests/test_kb.py` e `tests/test_age
 
 ## Passi
 
-- [ ] 1. Test delle aggiunte a `kb.py`
+- [x] 1. Test delle aggiunte a `kb.py`
   File: `tests/test_kb_fonti.py` (nuovo)
   Cosa fare: crea `tests/test_kb_fonti.py` con **esattamente** questo contenuto, senza cambiare nulla:
 ```
