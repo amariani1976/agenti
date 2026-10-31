@@ -151,7 +151,7 @@ if __name__ == '__main__':
   Cosa fare: aggiungi `leggi(kb, nota)` come richiesto da `LeggiTest`: percorsi assoluti o che escono dalla KB (dopo `os.path.realpath`) danno `ValueError`.
   Verifica: `python3 -m unittest tests/test_kb.py -k LeggiTest`
 
-- [ ] 4. KB: `indicizza` e `cerca`
+- [x] 4. KB: `indicizza` e `cerca`
   File: `kb/kb.py`
   Cosa fare: aggiungi `indicizza(kb, db)` e `cerca(db, query, n=5)` come richiesto da `IndiceTest`: tabella FTS5 `note(path UNINDEXED, titolo, testo)` ricreata da zero a ogni indicizzazione; solo file `.md`; salta le cartelle che iniziano con `.`; titolo = prima riga `# …`, altrimenti nome del file senza `.md`; `cerca` restituisce dict `path`, `titolo`, `estratto` (usa `snippet()` di FTS5) in ordine di `rank`. Crea la cartella di `db` se manca.
   Verifica: `python3 -m unittest tests/test_kb.py -k IndiceTest`

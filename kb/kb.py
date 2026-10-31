@@ -148,99 +148,68 @@ def leggi(kb, path):
         return f.read()
 
 
-def indicizza(kb, db_path):
+def indicizza(kb, db):
     """Crea o aggiorna l'indice SQLite FTS5.
+    
+    Crea la tabella FTS5 `note` da zero, ignorando le cartelle che iniziano con `.`.
+    Il titolo è la prima riga `# …`, altrimenti il nome del file senza `.md`.
     
     Args:
         kb: Directory della knowledge base.
-        db_path: Percorso del file del database.
+        db: Percorso del file del database.
         
     Returns:
         Numero di documenti indicizzati.
     """
-    # Assicurati che la directory del database esista
-    db_dir = os.path.dirname(db_path)
+    # Crea la cartella del db se manca
+    db_dir = os.path.dirname(db)
     if db_dir and not os.path.exists(db_dir):
         os.makedirs(db_dir, exist_ok=True)
     
-    conn = sqlite3.connect(db_path)
+    conn = sqlite3.connect(db)
     c = conn.cursor()
     
-    # Crea tabella se non esiste
+    # Rimuovi la vecchia tabella se esiste e ricrea da zero
+    c.execute('DROP TABLE IF EXISTS note')
     c.execute('''
-        CREATE TABLE IF NOT EXISTS documenti (
-            id INTEGER PRIMARY KEY,
-            path TEXT UNIQUE,
-            titolo TEXT,
-            contenuto TEXT
+        CREATE VIRTUAL TABLE note USING fts5(
+            path UNINDEXED,
+            titolo,
+            testo
         )
     ''')
     
-    # Crea indice FTS5 se non esiste
-    c.execute('''
-        CREATE VIRTUAL TABLE IF NOT EXISTS documenti_fts USING fts5(
-            contenuto
-        )
-    ''')
-    
-    # Crea tabella di mapping id -> rowid
-    c.execute('''
-        CREATE TABLE IF NOT EXISTS documenti_fts_mapping (
-            id INTEGER PRIMARY KEY,
-            rowid INTEGER
-        )
-    ''')
-    
-    # Trova tutti i file .md (esclusi .git)
+    # Trova tutti i file .md (esclusi . e .git, e cartelle che iniziano con `.`)
     md_files = []
     for root, dirs, files in os.walk(kb):
-        # Ignora directory .git
-        if '.git' in dirs:
-            dirs.remove('.git')
+        # Rimuovi directory che iniziano con `.`
+        dirs[:] = [d for d in dirs if not d.startswith('.')]
         for f in files:
             if f.endswith('.md'):
                 full_path = os.path.join(root, f)
                 rel_path = os.path.relpath(full_path, kb)
-                if '.git' not in rel_path:
-                    md_files.append((full_path, rel_path))
-    
-    # Pulisci il database (ricomincia da zero)
-    c.execute('DELETE FROM documenti')
-    c.execute('DELETE FROM documenti_fts')
-    c.execute('DELETE FROM documenti_fts_mapping')
+                md_files.append((full_path, rel_path))
     
     count = 0
     for full_path, rel_path in md_files:
         try:
             with open(full_path, 'r') as f:
-                contenuto = f.read()
+                testo = f.read()
             
             # Estrai titolo dalla prima riga # ...
             titolo = 'documento'
-            for riga in contenuto.split('\n'):
+            for riga in testo.split('\n'):
                 if riga.startswith('#'):
                     titolo = riga[1:].strip()
                     break
             # Se non c'è titolo, usa il nome del file senza estensione
             if titolo == 'documento':
-                titolo = os.path.splitext(rel_path)[0].replace('/', '-')
+                titolo = os.path.splitext(os.path.basename(rel_path))[0]
             
-            # Inserisci nel database
+            # Inserisci nella tabella FTS5
             c.execute(
-                'INSERT OR REPLACE INTO documenti (path, titolo, contenuto) VALUES (?, ?, ?)',
-                (rel_path, titolo, contenuto)
-            )
-            
-            # Inserisci nell'indice FTS5
-            c.execute(
-                'INSERT INTO documenti_fts (contenuto) VALUES (?)',
-                (contenuto,)
-            )
-            
-            # Salva il mapping
-            c.execute(
-                'INSERT OR REPLACE INTO documenti_fts_mapping (id, rowid) VALUES (?, ?)',
-                (count + 1, count + 1)
+                'INSERT INTO note (path, titolo, testo) VALUES (?, ?, ?)',
+                (rel_path, titolo, testo)
             )
             count += 1
         except (IOError, OSError):
@@ -252,50 +221,52 @@ def indicizza(kb, db_path):
     return count
 
 
-def cerca(db_path, query):
+def cerca(db, query, n=5):
     """Cerca documenti nell'indice FTS5.
     
+    Restituisce i risultati in ordine di rank, con estratto generato manualmente.
+    
     Args:
-        db_path: Percorso del file del database.
+        db: Percorso del file del database.
         query: Termine di ricerca.
+        n: Numero massimo di risultati (default: 5).
         
     Returns:
         Lista di dizionari con path, titolo e estratto.
     """
-    conn = sqlite3.connect(db_path)
+    conn = sqlite3.connect(db)
     c = conn.cursor()
     
     risultati = []
     
     try:
-        # Cerca usando FTS5
+        # Cerca usando FTS5, ordinando per rank
         c.execute('''
-            SELECT d.path, d.titolo, d.contenuto
-            FROM documenti d
-            JOIN documenti_fts_mapping m ON d.id = m.id
-            JOIN documenti_fts f ON f.rowid = m.rowid
-            WHERE f.contenuto MATCH ?
-            ORDER BY f.rowid
-        ''', (query,))
+            SELECT path, titolo, testo
+            FROM note
+            WHERE note MATCH ?
+            ORDER BY rank
+            LIMIT ?
+        ''', (query, n))
         
         for riga in c.fetchall():
-            path, titolo, contenuto = riga
+            path, titolo, testo = riga
             
-            # Estrai un estratto dal contenuto
+            # Genera estratto manualmente (snippet equivalente)
             estratto = ''
-            idx = contenuto.lower().find(query.lower())
+            idx = testo.lower().find(query.lower())
             if idx >= 0:
                 # Prendi 50 caratteri prima e dopo
                 start = max(0, idx - 50)
-                end = min(len(contenuto), idx + len(query) + 50)
-                estratto = contenuto[start:end]
+                end = min(len(testo), idx + len(query) + 50)
+                estratto = testo[start:end]
                 # Aggiungi ... se necessario
                 if start > 0:
                     estratto = '...' + estratto
-                if end < len(contenuto):
+                if end < len(testo):
                     estratto = estratto + '...'
             else:
-                estratto = contenuto[:200]
+                estratto = testo[:200]
             
             risultati.append({
                 'path': path,
