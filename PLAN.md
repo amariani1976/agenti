@@ -260,7 +260,7 @@ if __name__ == '__main__':
 ```
   Verifica: `python3 -c "import ast; ast.parse(open('tests/test_coda.py').read())"`
 
-- [ ] 2. Stima dei token (già pronta)
+- [x] 2. Stima dei token (già pronta)
   File: `coda/stima.py` (nuovo)
   Cosa fare: **non scrivere il file a mano.** Esegui soltanto, dalla radice del progetto, questo comando. Non creare
   né toccare `coda/ammissione.py` o `coda/proxy.py` (sono i passi 3 e 4): la verifica sotto li sostituisce con moduli
