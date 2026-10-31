@@ -435,7 +435,7 @@ if __name__ == '__main__':
   compattati, al massimo 300 caratteri).
   Verifica: `python3 -m unittest tests/test_web.py -k CercaTest`
 
-- [ ] 9. `web.py`: lettura delle pagine
+- [x] 9. `web.py`: lettura delle pagine
   File: `web/web.py`
   Cosa fare: aggiungi `leggi(url, max_car=MAX_CAR, scarica=scarica, risolvi=socket.getaddrinfo)` come richiesto da
   `LeggiTest`. Al massimo 6 giri; a ogni giro: solo `http`/`https` con nome dell'host, niente utente o password

@@ -373,6 +373,157 @@ def cerca(query, n=5, base=None, scarica=scarica):
     return risultati
 
 
+def leggi(url, max_car=MAX_CAR, scarica=scarica, risolvi=socket.getaddrinfo):
+    """Legge una pagina web e ne estrae titolo e testo.
+
+    Args:
+        url: URL della pagina da leggere.
+        max_car: numero massimo di caratteri da restituire.
+        scarica: funzione per scaricare (codice, intestazioni, corpo).
+        risolvi: funzione per risolvere il nome (default socket.getaddrinfo).
+
+    Returns:
+        Dizionario con 'url' (URL finale), 'titolo' (stringa), 'testo' (stringa).
+
+    Raises:
+        ValueError: se l'indirizzo non è pubblico, ci sono troppi redirect,
+                    il codice HTTP non è 200, o il contenuto non è testuale.
+    """
+    # Controlla che non ci siano troppi reindirizzamenti (max 6 giri)
+    url_visti = []
+    url_corrente = url
+    giri = 0
+    max_giri = 6
+
+    while True:
+        # Analizza l'URL
+        parsed = urllib.parse.urlparse(url_corrente)
+
+        # Solo http e https
+        if parsed.scheme not in ('http', 'https'):
+            raise ValueError(f'indirizzo non pubblico: {parsed.netloc}')
+
+        # Niente utente o password nell'indirizzo
+        if parsed.username or parsed.password:
+            raise ValueError(f'indirizzo non pubblico: {parsed.netloc}')
+
+        # Estrai l'host e verifica che sia pubblico
+        host = parsed.hostname
+        if not host:
+            raise ValueError(f'indirizzo non pubblico: {parsed.netloc}')
+
+        if not indirizzo_permesso(host, risolvi):
+            raise ValueError(f'indirizzo non pubblico: {host}')
+
+        # Scarica la pagina
+        codice, intestazioni, corpo = scarica(url_corrente)
+
+        # Gestisce i redirect (301/302/303/307/308) con Location
+        if codice in (301, 302, 303, 307, 308):
+            location = None
+            # Cerca l'header Location (senza badare alle maiuscole)
+            for chiave, valore in intestazioni.items():
+                if chiave.lower() == 'location':
+                    location = valore
+                    break
+            if location:
+                url_corrente = urllib.parse.urljoin(url_corrente, location)
+                giri += 1
+                url_visti.append(url_corrente)
+                if giri >= max_giri:
+                    raise ValueError('troppi reindirizzamenti')
+                # Ricontrolla tutto per il nuovo URL
+                continue
+
+        # Codice diverso da 200 → errore
+        if codice != 200:
+            raise ValueError(f'errore HTTP: {codice}')
+
+        # Decodifica il corpo usando il charset del Content-Type (default utf-8)
+        charset = 'utf-8'
+        # Cerca Content-Type in modo case-insensitive
+        content_type_raw = ''
+        for chiave, valore in intestazioni.items():
+            if chiave.lower() == 'content-type':
+                content_type_raw = valore
+                break
+        if content_type_raw:
+            content_type_lower = content_type_raw.lower()
+            if 'charset=' in content_type_lower:
+                # Estrai il charset
+                for parte in content_type_lower.split(';'):
+                    parte = parte.strip().lower()
+                    if parte.startswith('charset='):
+                        charset = parte[8:]
+                        break
+        try:
+            testo_decodificato = corpo.decode(charset, errors='replace')
+        except (UnicodeDecodeError, LookupError):
+            testo_decodificato = corpo.decode('utf-8', errors='replace')
+
+        # Determina il tipo di contenuto e il trattamento (già decodificato sopra)
+        content_type = content_type_raw.lower() if content_type_raw else ''
+
+        # Se non c'è Content-Type o è vuoto, assumiamo text/plain
+        if not content_type:
+            content_type = 'text/plain'
+
+        if content_type.startswith('text/html') or content_type.startswith('application/xhtml'):
+            # HTML → estrai titolo e testo
+            titolo, contenuto = estrai(testo_decodificato)
+        elif content_type.startswith('text/'):
+            # text/* (incluso text/plain) → testo così com'è, titolo vuoto
+            titolo = ''
+            contenuto = testo_decodificato
+        elif content_type.startswith('application/json') or content_type.startswith('text/json'):
+            # JSON → testo così com'è, titolo vuoto
+            titolo = ''
+            contenuto = testo_decodificato
+        elif content_type.endswith('+markdown') or content_type.endswith('/markdown'):
+            # Markdown → testo così com'è, titolo vuoto
+            titolo = ''
+            contenuto = testo_decodificato
+        elif content_type.startswith('application/') or content_type.startswith('image/') or content_type.startswith('audio/') or content_type.startswith('video/'):
+            # Non testuale
+            raise ValueError(f'contenuto non testuale: {content_type}')
+        else:
+            # Altro sconosciuto → non testuale
+            raise ValueError(f'contenuto non testuale: {content_type}')
+
+        # Tronca se supera max_car
+        if len(contenuto) > max_car:
+            contenuto = contenuto[:max_car] + '\n\n[… troncato a ' + str(max_car) + ' caratteri]'
+
+        return {'url': url_corrente, 'titolo': titolo, 'testo': contenuto}
+
+
 if __name__ == '__main__':
-    # Punto di ingresso per test manuali
-    print('Modulo web.py caricato.')
+    # Punto di ingresso per riga di comando
+    parser = argparse.ArgumentParser(description='Strumenti per la ricerca su internet.')
+    parser.add_argument('comando', choices=['cerca', 'leggi'], help='Comando da eseguire')
+    parser.add_argument('argomento', nargs='?', help='Argomento del comando (query o URL)')
+    parser.add_argument('--n', type=int, default=5, help='Numero massimo di risultati (solo per cerca)')
+    args = parser.parse_args()
+
+    try:
+        if args.comando == 'cerca':
+            if not args.argomento:
+                print('Errore: manca la query di ricerca', file=sys.stderr)
+                sys.exit(1)
+            risultati = cerca(args.argomento, n=args.n)
+            for r in risultati:
+                print(f"{r['titolo']}\n{r['url']}\n{r['estratto']}\n{'='*40}")
+        elif args.comando == 'leggi':
+            if not args.argomento:
+                print('Errore: manca l\'URL', file=sys.stderr)
+                sys.exit(1)
+            r = leggi(args.argomento)
+            print(f"Titolo: {r['titolo']}")
+            print(f"URL: {r['url']}")
+            print(f"\nTesto:\n{r['testo']}")
+    except ValueError as e:
+        print(f'web: {e}', file=sys.stderr)
+        sys.exit(1)
+    except Exception as e:
+        print(f'web: errore imprevisto: {e}', file=sys.stderr)
+        sys.exit(1)
