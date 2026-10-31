@@ -442,7 +442,7 @@ FINE
     `GIT_COMMITTER_NAME=kb`, `GIT_COMMITTER_EMAIL=kb@locale`; restituisce `True`.
   Verifica: `python3 -m unittest tests/test_servizio.py -k ApiTest -k AvvioTest`
 
-- [ ] 8. Servizio: MCP
+- [x] 8. Servizio: MCP
   File: `kb/servizio.py`
   Cosa fare: scrivi `chiama_strumento` e `mcp` (classe `McpTest` dei test).
   - `chiama_strumento(stato, nome, args)`: `kb_cerca` → `json.dumps(stato.cerca(args['query'], args.get('n', 5)),

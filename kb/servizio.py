@@ -79,12 +79,53 @@ def registra_git(kbdir, rel, agente):
 
 
 def chiama_strumento(stato, nome, args):
-    raise NotImplementedError
+    if nome == 'kb_cerca':
+        return json.dumps(stato.cerca(args['query'], args.get('n', 5)), ensure_ascii=False)
+    if nome == 'kb_leggi':
+        return stato.leggi(args['nota'])
+    if nome == 'kb_salva':
+        return stato.salva(args['agente'], args['titolo'], args['testo'],
+                           args.get('progetto'), args.get('extra'))
+    raise KeyError(nome)
 
 
 def mcp(stato, msg):
     """Una richiesta JSON-RPC → risposta (dict) oppure None per le notifiche."""
-    raise NotImplementedError
+    if msg is None or 'id' not in msg:
+        return None
+    id_msg = msg.get('id')
+    method = msg.get('method')
+    params = msg.get('params')
+    try:
+        if method == 'initialize':
+            return {'jsonrpc': '2.0', 'id': id_msg,
+                    'result': {'protocolVersion': VERSIONE_MCP,
+                               'capabilities': {'tools': {}},
+                               'serverInfo': {'name': 'kb', 'version': '1'}}}
+        if method == 'ping':
+            return {'jsonrpc': '2.0', 'id': id_msg, 'result': {}}
+        if method == 'tools/list':
+            return {'jsonrpc': '2.0', 'id': id_msg, 'result': {'tools': STRUMENTI}}
+        if method == 'tools/call':
+            nome = params.get('name')
+            args = params.get('arguments', {})
+            try:
+                output = chiama_strumento(stato, nome, args)
+                return {'jsonrpc': '2.0', 'id': id_msg,
+                        'result': {'content': [{'type': 'text', 'text': output}],
+                                   'isError': False}}
+            except KeyError:
+                return {'jsonrpc': '2.0', 'id': id_msg,
+                        'error': {'code': -32602, 'message': str(nome)}}
+            except (ValueError, OSError) as e:
+                return {'jsonrpc': '2.0', 'id': id_msg,
+                        'result': {'content': [{'type': 'text', 'text': str(e)}],
+                                   'isError': True}}
+        return {'jsonrpc': '2.0', 'id': id_msg,
+                'error': {'code': -32601, 'message': 'metodo sconosciuto'}}
+    except Exception:
+        return {'jsonrpc': '2.0', 'id': id_msg,
+                'error': {'code': -32601, 'message': 'metodo sconosciuto'}}
 
 
 class Gestore(BaseHTTPRequestHandler):
