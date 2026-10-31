@@ -161,7 +161,7 @@ if __name__ == '__main__':
   Cosa fare: aggiungi `main()` con argparse e i comandi `indicizza`, `cerca QUERY [-n N]`, `leggi NOTA`, `salva --agente --titolo [--progetto]` (testo da stdin, stampa il percorso creato). `KB_DIR` predefinita `/srv/kb`, `KB_DB` predefinita `~/.cache/kb/indice.db`. `ValueError` → messaggio su stderr e uscita 1. In fondo `if __name__ == '__main__': sys.exit(main())`.
   Verifica: `python3 -m unittest tests/test_kb.py`
 
-- [ ] 6. Test del comando `agente`
+- [x] 6. Test del comando `agente`
   File: `tests/test_agente.py` (nuovo)
   Cosa fare: crea `tests/test_agente.py` con **esattamente** questo contenuto, senza cambiare nulla:
 ```
