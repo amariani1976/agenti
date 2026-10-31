@@ -22,7 +22,7 @@ pytest). Commenti e messaggi in italiano. Non usare git.
 
 ## Passi
 
-- [ ] 1. Test del client
+- [x] 1. Test del client
   File: `tests/test_cliente.py` (nuovo)
   Cosa fare: crea `tests/test_cliente.py` con **esattamente** questo contenuto, senza cambiare nulla:
 ```
