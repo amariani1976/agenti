@@ -1,0 +1,11 @@
+{
+  "providers": {
+    "llamaswap": {
+      "baseUrl": "http://10.0.0.100:9292/v1",
+      "api": "openai-completions",
+      "apiKey": "locale",
+      "compat": { "supportsDeveloperRole": false, "supportsReasoningEffort": false },
+      "models": [{ "id": "programmatore", "contextWindow": 65536, "maxTokens": 8192 }]
+    }
+  }
+}

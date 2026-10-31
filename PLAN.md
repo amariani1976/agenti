@@ -238,7 +238,7 @@ if __name__ == '__main__':
   Cosa fare: crea `bin/agente` (Python 3, prima riga `#!/usr/bin/env python3`, `chmod 755`) con `comando(nome, compito, cartella, radice, pi)` → `(argv, env, cwd)` e `main()`, come richiesto da `tests/test_agente.py` (leggilo: è la specifica). Nome valido: `^[a-z][a-z0-9-]{0,40}$`. Le skill sono le sottocartelle di `profili/<nome>/skills/` che contengono `SKILL.md`, in ordine alfabetico. Riga di comando: `agente NOME [--cartella DIR] COMPITO...`; `AGENTE_PI` (predefinito `~/.local/bin/pi`) e `AGENTE_RADICE` (predefinita: cartella sopra `bin/`).
   Verifica: `test -x bin/agente && python3 -m unittest tests/test_agente.py`
 
-- [ ] 8. Profilo «programmatore» e skill `kb`
+- [x] 8. Profilo «programmatore» e skill `kb`
   File: `profili/programmatore/` (nuovi)
   Cosa fare: **non scrivere i file a mano.** Esegui soltanto, dalla radice del progetto, questo comando:
 ```
