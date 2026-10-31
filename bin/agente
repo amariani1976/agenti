@@ -2,7 +2,6 @@
 """Esecutore del comando agente: avvia pi con un profilo specifico."""
 import os
 import re
-import shutil
 import subprocess
 import sys
 
@@ -142,8 +141,12 @@ def main():
         print(f'errore: {e}', file=sys.stderr)
         sys.exit(1)
 
-    # Esegui il comando
-    subprocess.run(argv, env=env, cwd=cwd)
+    # Esegui pi con l'ambiente corrente più PI_CODING_AGENT_DIR e ne restituisce il codice di uscita
+    if not os.path.isdir(cwd):
+        print(f'errore: cartella inesistente: {cwd}', file=sys.stderr)
+        sys.exit(1)
+
+    sys.exit(subprocess.run(argv, env=dict(os.environ, **env), cwd=cwd).returncode)
 
 
 if __name__ == '__main__':

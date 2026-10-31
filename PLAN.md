@@ -499,7 +499,7 @@ EOF
 ```
   Verifica: `grep -q 'import argparse' kb/kb.py && ! grep -q KB_ODO kb/kb.py && python3 -m unittest tests/test_kb.py && python3 -m unittest tests/test_collaudo1.py -k KbCollaudoTest`
 
-- [ ] 14. `agente`: ambiente completo, codice di uscita, cartella inesistente
+- [x] 14. `agente`: ambiente completo, codice di uscita, cartella inesistente
   File: `bin/agente`
   Cosa fare: **non modificare il file a mano.** Esegui soltanto, dalla radice del progetto, questo comando:
 ```
