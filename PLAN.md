@@ -1,14 +1,14 @@
 ---
 stato: bozza
 ramo: ai/parte1-agente-kb
-modello: qwen3-coder:30b
+modello: esecutore
 ---
 # Piano: parte 1 — comando `agente`, profilo «programmatore» e KB di base
 
 ## Contesto
 Progetto `agenti` (leggi `CLAUDE.md` e `docs/PROGETTO.md`). Questa parte costruisce, senza dipendere dal modello scelto:
-- `kb/kb.py`: knowledge base in Markdown, salvataggio in `inbox/`, lettura sicura, indice SQLite FTS5 e ricerca
-  (i vettori arrivano nella parte 2);
+- `kb/kb.py`: nucleo della knowledge base in Markdown (`docs/PROGETTO.md` §6): salvataggio in `inbox/` con rifiuto
+  dei segreti, lettura sicura, indice SQLite FTS5 e ricerca (servizio, MCP e vettori arrivano nelle parti 2–3);
 - `bin/agente`: avvia pi con il profilo `profili/<nome>/` (solo le sue skill: `--no-skills` più un `--skill` per
   ciascuna, solo i suoi strumenti con `--tools`, variabile `PI_CODING_AGENT_DIR`);
 - il profilo `programmatore` con la skill `kb`.
@@ -74,6 +74,12 @@ class SalvaTest(Base):
         self.assertEqual(b, 'inbox/2026-10-31-doppia-2.md')
         self.assertIn('uno', open(os.path.join(self.kb, a)).read())
 
+    def test_rifiuta_segreti(self):
+        for t in ('password: abc123', 'TOKEN=ghp_' + 'a' * 36, '-----BEGIN OPENSSH PRIVATE KEY-----'):
+            with self.assertRaises(ValueError):
+                kb.salva(self.kb, 'x', 'Segreto', t, oggi='2026-10-31')
+        self.assertFalse(os.path.exists(os.path.join(self.kb, 'inbox')))
+
 
 class LeggiTest(Base):
     def test_leggi(self):
@@ -135,6 +141,9 @@ if __name__ == '__main__':
 - [ ] 2. KB: `slug` e `salva`
   File: `kb/kb.py` (nuovo)
   Cosa fare: crea `kb/kb.py` (docstring in italiano) con `slug(titolo)` e `salva(kb, agente, titolo, testo, progetto=None, oggi=None)` come richiesto dalla classe `SalvaTest` di `tests/test_kb.py` (leggila: è la specifica). `oggi` predefinito: data di oggi in formato AAAA-MM-GG. Il file si crea con `open(..., 'x')`; se il nome esiste prova `-2`, `-3`…
+  Prima di creare qualsiasi cosa, `salva` chiama `controlla_segreti(testo)`: costante `SEGRETI` (lista di regex
+  compilate, senza distinzione di maiuscole) per `password\s*[:=]`, `(token|secret|api_?key)\s*[:=]`, `ghp_[A-Za-z0-9]{30,}`,
+  `-----BEGIN [A-Z ]*PRIVATE KEY-----`; se una corrisponde, `ValueError('il testo sembra contenere un segreto')`.
   Verifica: `python3 -m unittest tests/test_kb.py -k SalvaTest`
 
 - [ ] 3. KB: `leggi`

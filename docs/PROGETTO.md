@@ -14,7 +14,7 @@ attingono e in cui salvano il loro lavoro.
 | Macchina | Risorse | Cosa ci gira |
 |---|---|---|
 | Unraid 10.0.0.100 | RTX 4070 16 GB, 24 core, 62 GB RAM | motore dei modelli (GPU), servizi leggeri su CPU (embedding, voce), KB su share |
-| AI-VM 10.0.0.114 | 4 vCPU, pochi GB RAM | agenti pi (sono solo client HTTP), Hermes (Telegram, web), Claude Code, esecutore dei piani |
+| AI-VM 10.0.0.114 | 8 vCPU, 16 GB RAM | agenti pi (sono solo client HTTP), Hermes (Telegram, web), Claude Code, esecutore dei piani |
 
 Regole: **tutto ciò che deve essere veloce sta in GPU**; sulla CPU solo cose minuscole (embedding, sintesi e
 riconoscimento vocale piccoli). La GPU regge un solo modello grande alla volta: per grande + piccoli accesi insieme
@@ -28,7 +28,7 @@ l'unica via pulita è una seconda GPU (§9, D-A6).
   contesto esplicito, KV in q8_0 con flash attention, template originali (`--jinja`).
 - llama-swap carica su richiesta e scarica dopo `ttl`; i **gruppi** tengono accesi insieme più modelli quando lo
   spazio lo permette (es. un piccolo su CPU accanto al programmatore).
-- Ollama resta finché serve a Hermes; non devono contendersi la GPU (una sola cosa grande alla volta).
+- Hermes e pi usano già llama-swap; Ollama resta solo per i modelli preesistenti. Il container passerà a `motore-ai` (llama-swap + calcolatore dei modelli per VRAM, repository AI-VM `motore/`), affiancato dal container `kb` (§6).
 - Il motore si sceglie per misura: il banco di prova (§8) confronta i modelli sui passi veri dei piani.
 
 ## 4. Agenti (pi)
@@ -65,13 +65,35 @@ grandi, verifiche che falliscono se il lavoro non c'è.
 
 ## 6. Second brain (KB)
 
-- **Fonte unica:** cartella di Markdown sotto git, su share Unraid (`/mnt/user/kb`), aperta da te con Obsidian;
-  montata sulla AI-VM in sola lettura per tutti tranne `inbox/` (D-A3).
-- **Indice:** SQLite con FTS5 (parole) + vettori (`sqlite-vec`), ricostruibile in ogni momento dai file; embedding con
-  un modello piccolo su CPU di Unraid (`bge-m3` o `nomic-embed-text`) servito da llama-swap.
-- **Comando** `kb cerca|leggi|salva` e **skill `kb`** di pi. Gli agenti scrivono solo in `inbox/` con intestazione
-  (agente, data, fonte, progetto); la promozione nelle cartelle definitive la fai tu o la propone il coordinatore.
-- Niente credenziali nella KB.
+Decisione del 2026-10-31 (D-A3): la KB sta **insieme all'engine** su Unraid, in un **container separato** (`kb`)
+installato e aggiornato con `motore-ai`: si può ricostruire il motore senza fermare la KB né toccarne i dati.
+
+- **File (fonte unica):** Markdown sotto git nella share `/mnt/user/kb`, apribile da Obsidian.
+  Cartelle: `inbox/` (scrivono gli agenti), `progetti/`, `decisioni/`, `lezioni/`, `persone/`, …
+- **Fonti esterne in sola lettura:** si indicizzano senza copiarli i documenti che hanno già una casa (guida AI-VM,
+  `docs/` dei progetti, ricerche): elenco in `fonti.json`, risultati marcati con la fonte. Una sola versione di ogni
+  documento, quella nel suo repository.
+- **Indice:** SQLite con FTS5 (parole) + `sqlite-vec` (significato) in `/mnt/user/appdata/kb`, ricostruibile in ogni
+  momento dai file. **Embedding dall'engine** con un modello piccolo **su CPU** (`nomic-embed-text` o `bge-m3`,
+  `-ngl 0`, sempre acceso in un gruppo di llama-swap): la VRAM resta tutta al modello principale; Ollama non serve.
+- **Servizio `kb`** (CPU, accanto a `motore-ai`): operazioni `cerca`, `leggi`, `salva`, `collega` esposte come
+  **API HTTP** e come **server MCP** sulla stessa porta. Ogni salvataggio è un commit git (tutto annullabile).
+- **Agganci:**
+
+| Chi | Come |
+|---|---|
+| Agenti pi | skill `kb` con il comando `kb` della AI-VM (client dell'API) |
+| Esecutore dei piani | cerca le lezioni prima di un passo; a fine piano salva un riassunto in `inbox/` |
+| Hermes (Telegram/web) | server MCP |
+| Claude Code | server MCP |
+| Utente | Obsidian sulla share; poi la scheda «KB» nell'interfaccia web dell'engine |
+
+- **Regole:** gli agenti scrivono solo in `inbox/` con intestazione (agente, data, progetto, fonte); la promozione
+  nelle cartelle definitive la fa l'utente o la propone il coordinatore. **Niente credenziali:** `salva` rifiuta i
+  testi che sembrano segreti (password, token, chiavi private).
+- **Parti:** 1) nucleo `kb.py` (file, inbox, lettura sicura, FTS5, controllo dei segreti) e comando locale;
+  2) servizio HTTP + MCP in container su Unraid, git, fonti esterne; 3) vettori con l'engine; 4) agganci (Claude
+  Code, Hermes, esecutore) e scheda web.
 
 ## 7. Immagini, video e voce
 
@@ -90,9 +112,9 @@ ogni nuovo modello o aggiornamento del motore. Prima tornata (2026-10-31): 13 mo
 
 | ID | Domanda | Proposta |
 |---|---|---|
-| D-A1 | Modello del programmatore | il migliore del banco per riuscita e velocità |
+| D-A1 | Modello del programmatore | **accettata 2026-10-31:** Qwen3.5-35B-A3B (banco, alias `esecutore`) |
 | D-A2 | Coordinatore: Claude o locale | Claude (più capace, non occupa la GPU); locale piccolo come riserva |
-| D-A3 | Dove sta la KB e come si monta | share Unraid `kb`, NFS sulla AI-VM (serve root sulla VM) |
+| D-A3 | Dove sta la KB e come si monta | **accettata 2026-10-31:** con l'engine su Unraid, container `kb` separato, API + MCP (§6) |
 | D-A4 | Motori della voce | faster-whisper small + Kokoro, CPU di Unraid |
 | D-A5 | Immagini e video | ComfyUI; modelli scelti con un banco dedicato (16 GB) |
 | D-A6 | Seconda GPU | da valutare solo se servono grande e piccoli accesi insieme |
