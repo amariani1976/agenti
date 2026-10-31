@@ -426,7 +426,7 @@ if __name__ == '__main__':
   aggiunge `ora` e riscrive il file (crea la cartella se manca).
   Verifica: `python3 -m unittest tests/test_web.py -k LimitiTest`
 
-- [ ] 8. `web.py`: ricerca
+- [x] 8. `web.py`: ricerca
   File: `web/web.py`
   Cosa fare: aggiungi `cerca(query, n=5, base=None, scarica=scarica)` come richiesto da `CercaTest`: URL
   `<base>/search?` + `urlencode({'q': query, 'format': 'json', 'categories': 'general,it'})` (base: argomento, poi

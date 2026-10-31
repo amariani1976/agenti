@@ -307,6 +307,72 @@ def conta(tipo, file=None, ora=None, limiti=None, finestra=FINESTRA):
     return len(istanti)
 
 
+def cerca(query, n=5, base=None, scarica=scarica):
+    """Cerca su internet tramite SearXNG.
+
+    Args:
+        query: query di ricerca.
+        n: numero massimo di risultati da restituire.
+        base: URL base del motore di ricerca (opzionale).
+        scarica: funzione per scaricare la risposta JSON.
+
+    Returns:
+        Lista di dizionari con 'titolo', 'url', 'estratto'.
+
+    Raises:
+        ValueError: se il codice HTTP non è 200.
+    """
+    # Determina la base: argomento, poi variabile WEB_SEARXNG, poi SEARXNG
+    if base is None:
+        base = os.environ.get('WEB_SEARXNG', SEARXNG)
+    # Rimuovi la slash finale se presente
+    base = base.rstrip('/')
+
+    # Costruisci l'URL con i parametri
+    params = {'q': query, 'format': 'json', 'categories': 'general,it'}
+    url = base + '/search?' + urllib.parse.urlencode(params)
+
+    # Scarica la risposta
+    codice, intestazioni, corpo = scarica(url)
+    if codice != 200:
+        raise ValueError(f'errore HTTP: {codice}')
+
+    # Parsa il JSON
+    try:
+        risposta = json.loads(corpo.decode('utf-8'))
+    except (json.JSONDecodeError, UnicodeDecodeError) as e:
+        raise ValueError(f'risposta JSON non valida: {e}')
+
+    # Estrai i risultati
+    results = risposta.get('results', [])
+    risultati = []
+    url_visti = set()
+
+    for r in results:
+        url = r.get('url', '')
+        # Solo URL http(s)
+        if not url.startswith(('http://', 'https://')):
+            continue
+        # Non duplicati
+        if url in url_visti:
+            continue
+        url_visti.add(url)
+
+        # Titolo: spazi compattati
+        titolo = ' '.join(r.get('title', '').split())
+        # Estratto: spazi compattati, max 300 caratteri
+        estratto = r.get('content', '')
+        estratto = ' '.join(estratto.split())
+        if len(estratto) > 300:
+            estratto = estratto[:300]
+
+        risultati.append({'titolo': titolo, 'url': url, 'estratto': estratto})
+        if len(risultati) >= n:
+            break
+
+    return risultati
+
+
 if __name__ == '__main__':
     # Punto di ingresso per test manuali
     print('Modulo web.py caricato.')
