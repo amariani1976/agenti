@@ -4,6 +4,7 @@ ramo: ai/agenti-base
 modello: esecutore
 verifica_globale: python3 -m unittest tests/test_kb.py tests/test_agente.py tests/test_kb_fonti.py tests/test_servizio.py
 aiuti: 2
+collaudi: 1
 ---
 # Piano: parte 4 — strumenti degli agenti: client della KB e ricerca su internet
 
