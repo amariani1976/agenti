@@ -58,7 +58,7 @@ def controlla_segreti(testo):
             raise ValueError('il testo sembra contenere un segreto')
 
 
-def salva(kb, agente, titolo, testo, progetto=None, oggi=None):
+def salva(kb, agente, titolo, testo, progetto=None, oggi=None, extra=None):
     """Salva un documento nella knowledge base.
     
     Crea un file Markdown con intestazione YAML contenente metadati.
@@ -71,18 +71,33 @@ def salva(kb, agente, titolo, testo, progetto=None, oggi=None):
         testo: Contenuto del documento.
         progetto: Nome del progetto (opzionale).
         oggi: Data in formato AAAA-MM-GG (default: data di oggi).
+        extra: Dizionario di campi extra da aggiungere all'intestazione (opzionale).
         
     Returns:
         Il percorso relativo del file creato.
         
     Raises:
-        ValueError: Se il testo contiene segreti.
+        ValueError: Se il testo o il titolo contengono segreti, o se extra ha chiavi non valide.
     """
     if oggi is None:
         oggi = date.today().strftime('%Y-%m-%d')
     
-    # Controlla segreti prima di creare qualsiasi cosa
+    # Controlla segreti nel testo
     controlla_segreti(testo)
+    
+    # Controlla segreti anche nel titolo
+    controlla_segreti(titolo)
+    
+    # Controlla e valida extra
+    if extra:
+        # Chiavi valide: solo alfanumeriche e underscore, nessun newline
+        for chiave, valore in extra.items():
+            if not re.match(r'^[a-zA-Z0-9_]+$', chiave):
+                raise ValueError('chiave non valida in extra')
+            if '\n' in str(valore):
+                raise ValueError('valore in extra contiene newline')
+            # Controlla segreti anche nei valori extra
+            controlla_segreti(str(valore))
     
     # Crea directory inbox se non esiste
     inbox_dir = os.path.join(kb, 'inbox')
@@ -105,6 +120,10 @@ def salva(kb, agente, titolo, testo, progetto=None, oggi=None):
     if progetto:
         righe.append(f'progetto: {progetto}')
     righe.append(f'data: {oggi}')
+    # Aggiungi campi extra se presenti
+    if extra:
+        for chiave, valore in extra.items():
+            righe.append(f'{chiave}: {valore}')
     righe.append('---')
     righe.append(f'# {titolo}')
     righe.append('')
@@ -120,35 +139,54 @@ def salva(kb, agente, titolo, testo, progetto=None, oggi=None):
     return os.path.relpath(percorso, kb)
 
 
-def leggi(kb, path):
-    """Legge un file dalla knowledge base.
+def leggi(kb, path, fonti=None):
+    """Legge un file dalla knowledge base o da una fonte esterna.
     
     Args:
         kb: Directory della knowledge base.
-        path: Percorso relativo del file da leggere.
+        path: Percorso relativo del file da leggere, o @nome/percorso per fonti.
+        fonti: Dizionario {nome: cartella} per fonti esterne.
         
     Returns:
         Contenuto del file.
         
     Raises:
-        ValueError: Se il percorso non è sicuro (fuori dalla KB).
+        ValueError: Se il percorso non è sicuro o non esiste.
     """
-    # Normalizza il percorso usando realpath per risolvere .. e link simbolici
-    percorso_assoluto = os.path.realpath(os.path.join(kb, path))
-    
-    # Verifica che il percorso sia dentro la KB
-    kb_abs = os.path.realpath(kb)
-    if not percorso_assoluto.startswith(kb_abs + os.sep):
-        raise ValueError('percorso non sicuro: fuori dalla knowledge base')
-    
-    if not os.path.exists(percorso_assoluto):
-        raise ValueError(f'file non trovato: {path}')
-    
-    with open(percorso_assoluto, 'r') as f:
-        return f.read()
+    # Controlla se è un percorso di fonte esterna
+    if path.startswith('@'):
+        if not fonti:
+            raise ValueError('fonti non fornite per percorso di fonte esterna')
+        # Estrai nome fonte e percorso relativo
+        match = re.match(r'^@([^/]+)/(.+)$', path)
+        if not match:
+            raise ValueError(f'formato percorso fonte non valido: {path}')
+        nome_fonte, percorso_rel = match.groups()
+        if nome_fonte not in fonti:
+            raise ValueError(f'fonte non trovata: {nome_fonte}')
+        cartella_fonte = fonti[nome_fonte]
+        percorso_assoluto = os.path.realpath(os.path.join(cartella_fonte, percorso_rel))
+        cartella_assoluta = os.path.realpath(cartella_fonte)
+        # Verifica che il percorso sia dentro la fonte
+        if not percorso_assoluto.startswith(cartella_assoluta + os.sep):
+            raise ValueError('percorso non sicuro: fuori dalla fonte')
+        if not os.path.exists(percorso_assoluto):
+            raise ValueError(f'file non trovato: {path}')
+        with open(percorso_assoluto, 'r') as f:
+            return f.read()
+    else:
+        # Percorso normale nella KB
+        percorso_assoluto = os.path.realpath(os.path.join(kb, path))
+        kb_abs = os.path.realpath(kb)
+        if not percorso_assoluto.startswith(kb_abs + os.sep):
+            raise ValueError('percorso non sicuro: fuori dalla knowledge base')
+        if not os.path.exists(percorso_assoluto):
+            raise ValueError(f'file non trovato: {path}')
+        with open(percorso_assoluto, 'r') as f:
+            return f.read()
 
 
-def indicizza(kb, db):
+def indicizza(kb, db, fonti=None):
     """Crea o aggiorna l'indice SQLite FTS5.
     
     Crea la tabella FTS5 `note` da zero, ignorando le cartelle che iniziano con `.`.
@@ -157,6 +195,7 @@ def indicizza(kb, db):
     Args:
         kb: Directory della knowledge base.
         db: Percorso del file del database.
+        fonti: Dizionario {nome: cartella} per fonti esterne in sola lettura.
         
     Returns:
         Numero di documenti indicizzati.
@@ -174,12 +213,14 @@ def indicizza(kb, db):
     c.execute('''
         CREATE VIRTUAL TABLE note USING fts5(
             path UNINDEXED,
+            fonte UNINDEXED,
             titolo,
             testo
         )
     ''')
     
     # Trova tutti i file .md (esclusi . e .git, e cartelle che iniziano con `.`)
+    # Note della KB hanno fonte='kb' e percorso relativo
     md_files = []
     for root, dirs, files in os.walk(kb):
         # Rimuovi directory che iniziano con `.`
@@ -188,10 +229,10 @@ def indicizza(kb, db):
             if f.endswith('.md'):
                 full_path = os.path.join(root, f)
                 rel_path = os.path.relpath(full_path, kb)
-                md_files.append((full_path, rel_path))
+                md_files.append((full_path, rel_path, 'kb'))
     
     count = 0
-    for full_path, rel_path in md_files:
+    for full_path, rel_path, fonte in md_files:
         try:
             with open(full_path, 'r') as f:
                 testo = f.read()
@@ -208,12 +249,49 @@ def indicizza(kb, db):
             
             # Inserisci nella tabella FTS5
             c.execute(
-                'INSERT INTO note (path, titolo, testo) VALUES (?, ?, ?)',
-                (rel_path, titolo, testo)
+                'INSERT INTO note (path, fonte, titolo, testo) VALUES (?, ?, ?, ?)',
+                (rel_path, fonte, titolo, testo)
             )
             count += 1
         except (IOError, OSError):
             pass
+    
+    # Aggiungi fonti esterne
+    if fonti:
+        for nome, cartella in fonti.items():
+            if not os.path.exists(cartella):
+                continue
+            for root, dirs, files in os.walk(cartella):
+                # Rimuovi directory che iniziano con `.`
+                dirs[:] = [d for d in dirs if not d.startswith('.')]
+                for f in files:
+                    if f.endswith('.md'):
+                        full_path = os.path.join(root, f)
+                        rel_path = os.path.relpath(full_path, cartella)
+                        try:
+                            with open(full_path, 'r') as ff:
+                                testo = ff.read()
+                            
+                            # Estrai titolo dalla prima riga # ...
+                            titolo = 'documento'
+                            for riga in testo.split('\n'):
+                                if riga.startswith('# '):
+                                    titolo = riga[2:].strip()
+                                    break
+                            if titolo == 'documento':
+                                titolo = os.path.splitext(os.path.basename(rel_path))[0]
+                            
+                            # Percorso con prefisso @nome
+                            percorso_fonte = f'@{nome}/{rel_path}'
+                            
+                            # Inserisci nella tabella FTS5
+                            c.execute(
+                                'INSERT INTO note (path, fonte, titolo, testo) VALUES (?, ?, ?, ?)',
+                                (percorso_fonte, nome, titolo, testo)
+                            )
+                            count += 1
+                        except (IOError, OSError):
+                            pass
     
     conn.commit()
     conn.close()
@@ -222,15 +300,38 @@ def indicizza(kb, db):
 
 
 def cerca(db, query, n=5):
-    """Cerca nell'indice FTS5: lista di dict path, titolo, estratto (snippet di FTS5) in ordine di rank."""
+    """Cerca nell'indice FTS5: lista di dict path, titolo, estratto, fonte in ordine di rank.
+    
+    Se db non esiste, restituisce [].
+    La query viene trasformata: ogni parola separata da spazi diventa una frase tra virgolette.
+    Query vuota restituisce [].
+    """
+    if not os.path.exists(db):
+        return []
+    
     conn = sqlite3.connect(db)
     try:
+        # Trasforma la query: separa per spazi, togli virgolette esistenti, riapplica virgolette
+        parole = query.split()
+        if not parole:
+            return []
+        # Pulisci le parole dalle virgolette esistenti
+        parole_pulite = [p.strip('"') for p in parole]
+        # Costruisci nuova query con parole tra virgolette unite da OR
+        query_trasformata = ' '.join(f'"{p}"' for p in parole_pulite)
+        query_trasformata = ' OR '.join(query_trasformata.split())
+        # Se c'è solo una parola, non serve OR
+        if len(parole_pulite) == 1:
+            query_trasformata = f'"{parole_pulite[0]}"'
+        else:
+            query_trasformata = ' OR '.join(f'"{p}"' for p in parole_pulite)
+        
         righe = conn.execute(
-            "SELECT path, titolo, snippet(note, 2, '', '', '…', 16) FROM note WHERE note MATCH ? ORDER BY rank LIMIT ?",
-            (query, n)).fetchall()
+            "SELECT path, fonte, titolo, snippet(note, 3, '', '', '…', 16) FROM note WHERE note MATCH ? ORDER BY rank LIMIT ?",
+            (query_trasformata, n)).fetchall()
     finally:
         conn.close()
-    return [{'path': p, 'titolo': t, 'estratto': e} for p, t, e in righe]
+    return [{'path': p, 'fonte': f, 'titolo': t, 'estratto': e} for p, f, t, e in righe]
 
 
 def main(argv=None):

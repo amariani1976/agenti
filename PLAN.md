@@ -106,7 +106,7 @@ if __name__ == '__main__':
 ```
   Verifica: `python3 -c "import ast; ast.parse(open('tests/test_kb_fonti.py').read())"`
 
-- [ ] 2. `kb.py`: indice con fonti e ricerca robusta
+- [x] 2. `kb.py`: indice con fonti e ricerca robusta
   File: `kb/kb.py`
   Cosa fare: cambia `indicizza(kb, db, fonti=None)`: `fonti` è un dict `{nome: cartella}`; la tabella diventa
   `note(path UNINDEXED, fonte UNINDEXED, titolo, testo)`; le note della KB hanno `fonte` = `'kb'` e percorso relativo
