@@ -1,5 +1,5 @@
 ---
-stato: bozza
+stato: in-esecuzione
 ramo: ai/agenti-base
 modello: esecutore
 ---
