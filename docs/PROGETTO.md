@@ -98,8 +98,10 @@ KB non c'è, cerca su internet; quello che trova e gli è servito lo salva nella
 
 1. **KB:** `kb cerca` con poche parole precise; se un risultato basta, lo usa e lo cita (percorso della nota).
 2. **Internet** (solo se la KB non basta): skill `web` con `web cerca "…"` (motore di ricerca locale **SearXNG**,
-   container su Unraid accanto a `kb`, nessuna chiave a pagamento) e `web leggi URL` (pagina ripulita in Markdown,
-   troncata). Limiti per compito: 3 ricerche e 5 pagine lette, poi si ferma e lo dice.
+   container `kb-searxng` su Unraid, porta 8888, installato il 2026-10-31; nessuna chiave a pagamento) e
+   `web leggi URL` (pagina ripulita in Markdown, troncata; solo libreria standard). Limiti: 3 ricerche e 5 pagine
+   ogni 10 minuti, poi si ferma e lo dice. Da casa rispondono Bing e GitHub (Google vuoto, DuckDuckGo con CAPTCHA):
+   per questo niente riserva diretta su DuckDuckGo; SearXNG ripiega da solo sui motori che rispondono.
 3. **Salvataggio:** `kb salva` in `inbox/` con intestazione `fonte: web`, gli URL, la data e `stato: da-verificare`;
    testo **scritto dall'agente** (sintesi di ciò che è servito, con i comandi o i passi provati), non la pagina copiata.
    Prima di salvare cerca se esiste già una nota sullo stesso argomento: in quel caso la aggiorna (nuova nota con
@@ -112,10 +114,16 @@ senza capirli, niente segreti inviati fuori); `web` è solo lettura (GET, niente
 blocca indirizzi locali e della rete di casa; il controllo dei segreti di `salva` vale anche qui. L'esecutore dei
 piani usa `web` solo in lettura e mai per uscire dal perimetro del passo.
 
-- **Parti:** 1) nucleo `kb.py` (file, inbox, lettura sicura, FTS5, controllo dei segreti) e comando locale;
-  2) servizio HTTP + MCP in container su Unraid, git, fonti esterne; 3) vettori con l'engine; 4) **ricerca su
-  internet**: SearXNG, comando e skill `web`, ciclo §6.1 nelle istruzioni degli agenti; 5) agganci (Claude Code,
-  Hermes, esecutore) e scheda web.
+- **Parti** (stesso ramo `ai/agenti-base`, una dopo l'altra; i piani in attesa stanno in `piani/` e diventano
+  `PLAN.md` quando tocca a loro):
+  1) nucleo `kb.py` (file, inbox, lettura sicura, FTS5, segreti), comando `agente`, profilo `programmatore` — `PLAN.md`;
+  2) servizio HTTP + MCP, fonti esterne, git — `piani/parte2-kb-servizio.md`;
+  3) vettori con l'engine (dopo l'installazione di `motore-ai` e la scelta del modello di embedding);
+  4) client della KB (`KB_URL`) e ricerca su internet (`web`, skill e ciclo §6.1) — `piani/parte4-client-e-web.md`;
+  5) installazione su Unraid (container `kb`, fonti sincronizzate dalla AI-VM) e agganci a Claude Code, Hermes ed
+     esecutore: li fa Claude, non l'esecutore (toccano server e configurazioni).
+  Le parti 2 e 4 sono state provate prima con un'implementazione di riferimento (fuori dal repository): tutti i test
+  dei piani passano.
 
 ## 7. Immagini, video e voce
 

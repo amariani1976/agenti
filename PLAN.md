@@ -1,6 +1,6 @@
 ---
 stato: bozza
-ramo: ai/parte1-agente-kb
+ramo: ai/agenti-base
 modello: esecutore
 ---
 # Piano: parte 1 — comando `agente`, profilo «programmatore» e KB di base
