@@ -448,7 +448,7 @@ if __name__ == '__main__':
   Troppi giri → `ValueError('troppi reindirizzamenti')`.
   Verifica: `python3 -m unittest tests/test_web.py -k LeggiTest`
 
-- [ ] 10. `web.py`: riga di comando
+- [x] 10. `web.py`: riga di comando
   File: `web/web.py`
   Cosa fare: aggiungi `main(argv=None)` con argparse (`prog='web'`): `cerca QUERY [-n N]` e `leggi URL`. Prima di
   tutto `conta(<comando>, os.environ.get('WEB_USI'))`. `cerca` stampa per ogni risultato titolo, poi URL e estratto

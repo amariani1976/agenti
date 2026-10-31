@@ -497,33 +497,49 @@ def leggi(url, max_car=MAX_CAR, scarica=scarica, risolvi=socket.getaddrinfo):
         return {'url': url_corrente, 'titolo': titolo, 'testo': contenuto}
 
 
-if __name__ == '__main__':
-    # Punto di ingresso per riga di comando
-    parser = argparse.ArgumentParser(description='Strumenti per la ricerca su internet.')
-    parser.add_argument('comando', choices=['cerca', 'leggi'], help='Comando da eseguire')
-    parser.add_argument('argomento', nargs='?', help='Argomento del comando (query o URL)')
-    parser.add_argument('--n', type=int, default=5, help='Numero massimo di risultati (solo per cerca)')
-    args = parser.parse_args()
+def main(argv=None):
+    """Riga di comando: cerca QUERY [-n N] o leggi URL.
+
+    Args:
+        argv: argomenti da riga di comando (default: sys.argv[1:])
+
+    Returns:
+        0 se tutto ok, 1 in caso di errore.
+    """
+    import os
+
+    ap = argparse.ArgumentParser(prog='web', description='Strumenti per la ricerca su internet')
+    sub = ap.add_subparsers(dest='comando', required=True)
+    cerca_p = sub.add_parser('cerca', help='cerca su internet')
+    cerca_p.add_argument('query')
+    cerca_p.add_argument('-n', type=int, default=5)
+    leggi_p = sub.add_parser('leggi', help='leggi una pagina web')
+    leggi_p.add_argument('url')
+    a = ap.parse_args(argv)
+
+    # Controlla il limite d'uso prima di eseguire il comando
+    env_file = os.environ.get('WEB_USI')
+    conta(a.comando, env_file)
 
     try:
-        if args.comando == 'cerca':
-            if not args.argomento:
-                print('Errore: manca la query di ricerca', file=sys.stderr)
-                sys.exit(1)
-            risultati = cerca(args.argomento, n=args.n)
+        if a.comando == 'cerca':
+            risultati = cerca(a.query, n=a.n)
             for r in risultati:
-                print(f"{r['titolo']}\n{r['url']}\n{r['estratto']}\n{'='*40}")
-        elif args.comando == 'leggi':
-            if not args.argomento:
-                print('Errore: manca l\'URL', file=sys.stderr)
-                sys.exit(1)
-            r = leggi(args.argomento)
-            print(f"Titolo: {r['titolo']}")
-            print(f"URL: {r['url']}")
-            print(f"\nTesto:\n{r['testo']}")
-    except ValueError as e:
+                print(r['titolo'])
+                print(r['url'])
+                print('  ' + r['estratto'])
+        elif a.comando == 'leggi':
+            r = leggi(a.url)
+            titolo = r['titolo'] if r['titolo'] else r['url']
+            print(f'# {titolo}')
+            print(r['url'])
+            print()
+            print(r['testo'])
+    except (ValueError, OSError) as e:
         print(f'web: {e}', file=sys.stderr)
-        sys.exit(1)
-    except Exception as e:
-        print(f'web: errore imprevisto: {e}', file=sys.stderr)
-        sys.exit(1)
+        return 1
+    return 0
+
+
+if __name__ == '__main__':
+    sys.exit(main())
