@@ -334,9 +334,34 @@ def cerca(db, query, n=5):
     return [{'path': p, 'fonte': f, 'titolo': t, 'estratto': e} for p, f, t, e in righe]
 
 
+def _servizio(metodo, percorso, dati=None):
+    """Chiama il servizio della KB (KB_URL, KB_TOKEN) e restituisce la risposta JSON."""
+    import json
+    import urllib.error
+    import urllib.request
+    url = os.environ['KB_URL'].rstrip('/') + percorso
+    intestazioni = {'Authorization': 'Bearer ' + os.environ.get('KB_TOKEN', '')}
+    corpo = None
+    if dati is not None:
+        corpo = json.dumps(dati).encode('utf-8')
+        intestazioni['Content-Type'] = 'application/json'
+    richiesta = urllib.request.Request(url, data=corpo, headers=intestazioni, method=metodo)
+    try:
+        with urllib.request.urlopen(richiesta, timeout=30) as r:
+            return json.loads(r.read().decode('utf-8'))
+    except urllib.error.HTTPError as e:
+        try:
+            errore = json.loads(e.read().decode('utf-8')).get('errore')
+        except ValueError:
+            errore = None
+        raise ValueError(errore or 'errore HTTP %d' % e.code)
+
+
 def main(argv=None):
-    """Riga di comando: indicizza, cerca, leggi, salva (testo da stdin)."""
+    """Riga di comando: indicizza, cerca, leggi, salva (testo da stdin).
+    Con KB_URL impostata cerca, leggi e salva usano il servizio invece dei file."""
     import argparse
+    import urllib.parse
     ap = argparse.ArgumentParser(prog='kb', description='Knowledge base in Markdown')
     sub = ap.add_subparsers(dest='comando', required=True)
     sub.add_parser('indicizza', help="ricostruisce l'indice")
@@ -349,21 +374,44 @@ def main(argv=None):
     s.add_argument('--agente', required=True)
     s.add_argument('--titolo', required=True)
     s.add_argument('--progetto')
+    s.add_argument('--campo', action='append', default=[], metavar='CHIAVE=VALORE',
+                   help='campo in più nell\'intestazione (ripetibile)')
     a = ap.parse_args(argv)
     kb_dir = os.environ.get('KB_DIR', '/srv/kb')
     db = os.environ.get('KB_DB', os.path.expanduser('~/.cache/kb/indice.db'))
+    remoto = bool(os.environ.get('KB_URL'))
     try:
         if a.comando == 'indicizza':
             print('note indicizzate: %d' % indicizza(kb_dir, db))
         elif a.comando == 'cerca':
-            for r in cerca(db, a.query, a.n):
+            if remoto:
+                q = urllib.parse.urlencode({'q': a.query, 'n': a.n})
+                risultati = _servizio('GET', '/cerca?' + q)['risultati']
+            else:
+                risultati = cerca(db, a.query, a.n)
+            for r in risultati:
                 print('%s: %s' % (r['path'], r['titolo']))
                 print('  ' + ' '.join(r['estratto'].split()))
         elif a.comando == 'leggi':
-            sys.stdout.write(leggi(kb_dir, a.nota))
+            if remoto:
+                q = urllib.parse.urlencode({'nota': a.nota})
+                sys.stdout.write(_servizio('GET', '/leggi?' + q)['testo'])
+            else:
+                sys.stdout.write(leggi(kb_dir, a.nota))
         else:
-            print(salva(kb_dir, a.agente, a.titolo, sys.stdin.read(), progetto=a.progetto))
-    except (ValueError, sqlite3.OperationalError) as e:
+            extra = {}
+            for campo in a.campo:
+                chiave, uguale, valore = campo.partition('=')
+                if not uguale:
+                    raise ValueError('campo non valido (serve CHIAVE=VALORE): %s' % campo)
+                extra[chiave] = valore
+            testo = sys.stdin.read()
+            if remoto:
+                print(_servizio('POST', '/salva', {'agente': a.agente, 'titolo': a.titolo, 'testo': testo,
+                                                   'progetto': a.progetto, 'extra': extra or None})['path'])
+            else:
+                print(salva(kb_dir, a.agente, a.titolo, testo, progetto=a.progetto, extra=extra or None))
+    except (ValueError, OSError, sqlite3.OperationalError) as e:
         print('kb: %s' % e, file=sys.stderr)
         return 1
     return 0
@@ -371,4 +419,3 @@ def main(argv=None):
 
 if __name__ == '__main__':
     sys.exit(main())
-

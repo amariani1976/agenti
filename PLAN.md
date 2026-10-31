@@ -120,7 +120,7 @@ sed -i 's/kb.salva(self.kbdir, agente, titolo, testo, progetto, extra)/kb.salva(
 ```
   Verifica: `grep -q "progetto, extra=extra)" kb/servizio.py && python3 -m unittest tests/test_servizio.py`
 
-- [ ] 3. `kb.py`: modalità client e `--campo`
+- [x] 3. `kb.py`: modalità client e `--campo`
   File: `kb/kb.py`
   Cosa fare: sostituisce `main()` con una versione che accetta `--campo CHIAVE=VALORE` (ripetibile) in `salva` e,
   se è impostata `KB_URL`, usa il servizio (`_servizio()`, con `KB_TOKEN`) per `cerca`, `leggi` e `salva`.
