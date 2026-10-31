@@ -395,26 +395,41 @@ if __name__ == '__main__':
 ```
   Verifica: `python3 -c "import ast; ast.parse(open('tests/test_collaudo1.py').read())"`
 
-- [!] 11. KB: titolo, `cerca` con `snippet()` e riga di comando con argparse
+- [ ] 11. KB: titolo solo dalla riga `# …`
   File: `kb/kb.py`
-  Cosa fare: **non modificare il file a mano.** Esegui soltanto, dalla radice del progetto, questo comando:
+  Cosa fare: **non modificare il file a mano.** Esegui soltanto, dalla radice del progetto, questo comando, che
+  sostituisce in `indicizza` il blocco del titolo (le altre righe del file restano come sono):
 ```
 python3 - <<'EOF'
-import re
 p = 'kb/kb.py'
 s = open(p).read()
-vecchio_titolo = s[s.index("            titolo = 'documento'\n"):s.index("            # Inserisci nella tabella FTS5\n")]
-s = s.replace(vecchio_titolo, '''            # Titolo: prima riga «# …», altrimenti il nome del file senza .md
+a = s.index("            # Estrai titolo dalla prima riga # ...\n")
+b = s.index("            # Inserisci nella tabella FTS5\n")
+s = s[:a] + '''            # Titolo: prima riga «# …», altrimenti il nome del file senza .md
             titolo = os.path.splitext(os.path.basename(rel_path))[0]
             for riga in testo.split('\\n'):
                 if riga.startswith('# '):
                     titolo = riga[2:].strip()
                     break
 
-''')
-inizio = s.index('def cerca(db, query, n=5):')
-fine = s.index("if __name__ == '__main__':")
-s = s[:inizio] + '''def cerca(db, query, n=5):
+''' + s[b:]
+open(p, 'w').write(s)
+EOF
+```
+  Verifica: `python3 -m unittest tests/test_collaudo1.py -k test_titolo_solo_da_riga_h1 && python3 -m unittest tests/test_kb.py -k IndiceTest`
+
+- [ ] 12. KB: `cerca` con `snippet()` di FTS5
+  File: `kb/kb.py`
+  Cosa fare: **non modificare il file a mano.** Esegui soltanto, dalla radice del progetto, questo comando, che
+  sostituisce la sola funzione `cerca` (da `def cerca` a `def main`; il resto del file resta com'è). Le righe
+  tolte (circa 55) sono previste: è la vecchia `cerca` che va eliminata.
+```
+python3 - <<'EOF'
+p = 'kb/kb.py'
+s = open(p).read()
+a = s.index('def cerca(db, query, n=5):')
+b = s.index('def main(')
+s = s[:a] + '''def cerca(db, query, n=5):
     """Cerca nell'indice FTS5: lista di dict path, titolo, estratto (snippet di FTS5) in ordine di rank."""
     conn = sqlite3.connect(db)
     try:
@@ -426,7 +441,24 @@ s = s[:inizio] + '''def cerca(db, query, n=5):
     return [{'path': p, 'titolo': t, 'estratto': e} for p, t, e in righe]
 
 
-def main(argv=None):
+''' + s[b:]
+open(p, 'w').write(s)
+EOF
+```
+  Verifica: `grep -q 'snippet(note' kb/kb.py && python3 -m unittest tests/test_collaudo1.py -k test_estratto_con_snippet && python3 -m unittest tests/test_kb.py -k IndiceTest`
+
+- [ ] 13. KB: riga di comando con argparse
+  File: `kb/kb.py`
+  Cosa fare: **non modificare il file a mano.** Esegui soltanto, dalla radice del progetto, questo comando, che
+  sostituisce la sola funzione `main` (da `def main` a `if __name__ == '__main__':`; il resto del file resta com'è).
+  Le righe tolte (circa 80) sono previste: è la vecchia `main` senza argparse che va eliminata.
+```
+python3 - <<'EOF'
+p = 'kb/kb.py'
+s = open(p).read()
+a = s.index('def main(')
+b = s.index("if __name__ == '__main__':")
+s = s[:a] + '''def main(argv=None):
     """Riga di comando: indicizza, cerca, leggi, salva (testo da stdin)."""
     import argparse
     ap = argparse.ArgumentParser(prog='kb', description='Knowledge base in Markdown')
@@ -461,13 +493,13 @@ def main(argv=None):
     return 0
 
 
-''' + s[fine:]
+''' + s[b:]
 open(p, 'w').write(s)
 EOF
 ```
-  Verifica: `python3 -m unittest tests/test_kb.py && python3 -m unittest tests/test_collaudo1.py -k KbCollaudoTest`
+  Verifica: `grep -q 'import argparse' kb/kb.py && ! grep -q KB_ODO kb/kb.py && python3 -m unittest tests/test_kb.py && python3 -m unittest tests/test_collaudo1.py -k KbCollaudoTest`
 
-- [ ] 12. `agente`: ambiente completo, codice di uscita, cartella inesistente
+- [ ] 14. `agente`: ambiente completo, codice di uscita, cartella inesistente
   File: `bin/agente`
   Cosa fare: **non modificare il file a mano.** Esegui soltanto, dalla radice del progetto, questo comando:
 ```
@@ -491,7 +523,7 @@ EOF
 ```
   Verifica: `test -x bin/agente && python3 -m unittest tests/test_agente.py tests/test_collaudo1.py`
 
-- [ ] 13. Controllo finale del collaudo 1
+- [ ] 15. Controllo finale del collaudo 1
   File: nessuno (correggi solo ciò che i comandi segnalano)
   Cosa fare: esegui tutti i test.
   Verifica: `python3 -m unittest tests/test_kb.py tests/test_agente.py tests/test_collaudo1.py && ! grep -q KB_ODO kb/kb.py`
