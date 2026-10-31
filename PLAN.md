@@ -3,6 +3,7 @@ stato: in-esecuzione
 ramo: ai/coda-gpu
 modello: esecutore
 verifica_globale: python3 -m unittest tests/test_kb.py tests/test_agente.py tests/test_kb_fonti.py tests/test_servizio.py tests/test_cliente.py tests/test_web.py
+aiuti: 1
 ---
 # Piano: coda di ammissione davanti al motore (più agenti insieme sullo stesso modello)
 
@@ -259,7 +260,7 @@ if __name__ == '__main__':
 ```
   Verifica: `python3 -c "import ast; ast.parse(open('tests/test_coda.py').read())"`
 
-- [ ] 2. Stima dei token
+- [!] 2. Stima dei token
   File: `coda/stima.py` (nuovo)
   Cosa fare: crea `coda/stima.py` (docstring in italiano) con `MAX_RISPOSTA = 8192`, `testo(contenuto)` (stringa →
   se stessa; lista → concatenazione dei campi `text` dei dict; altro → `''`) e `stima(corpo)`: caratteri di tutti i
