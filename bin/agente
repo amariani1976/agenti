@@ -100,7 +100,8 @@ def _stampa_json(dato):
     print(json.dumps(dato, indent=2, sort_keys=True))
 
 
-def _esegui_con_verifica(file_arg, verifica_arg, tentativi_arg, nome, compito, cartella, radice, pi):
+def _esegui_con_verifica(file_arg, verifica_arg, tentativi_arg, nome, compito, cartella, radice, pi,
+                         verifica_globale=None, senza_revisione=False):
     """Esegue l'agente con verifica usando ciclo.esegui."""
     # Calcola la cartella dei moduli usando realpath(__file__) in modo assoluto
     agente_path = os.path.realpath(__file__)
@@ -176,6 +177,13 @@ def _esegui_con_verifica(file_arg, verifica_arg, tentativi_arg, nome, compito, c
         print('errore: ' + str(ex), file=sys.stderr)
         sys.exit(2)
 
+    # Revisore con lo stesso Esecuzione del programmatore, salvo --senza-revisione
+    revisione_fn = None
+    if not senza_revisione:
+        sys.path.insert(0, moduli_path)
+        import ruoli
+        revisione_fn = lambda c, d: ruoli.revisore({'agente': 'revisore', 'compito': c}, d, esecuzione.lancia)
+
     # Esegui ciclo.esegui con tentativi da 1 a 5
     # Gestisci verifica_arg=None: passa None ma ciclo.esegui lo gestisce
     risultato = ciclo.esegui(
@@ -186,7 +194,9 @@ def _esegui_con_verifica(file_arg, verifica_arg, tentativi_arg, nome, compito, c
         tentativi=tentativi,
         lancia=esecuzione.lancia,
         verifica_fn=esecuzione.verifica,
-        lezioni=esecuzione.lezioni
+        lezioni=esecuzione.lezioni,
+        verifica_globale=verifica_globale,
+        revisione=revisione_fn
     )
 
     # Restituisci il risultato senza uscire
@@ -243,11 +253,6 @@ def _orchestratore(richiesta, cartella, radice):
         'ricercatore': lambda c, d: ruoli.ricercatore(c, d, e.lancia)
     }
     
-    # Se non c'è --senza-revisione, aggiungi la funzione revisione con lo stesso Esecuzione del programmatore
-    revisione_fn = None
-    if not args.senza_revisione:
-        revisione_fn = lambda compito, cartella: ruoli.revisore({'agente': 'revisore', 'compito': compito}, cartella, e.lancia)
-    
     # Crea la funzione chiedi che usa Esecuzione.lancia con prompt «rispondi solo con il JSON»
     def chiedi(prompt):
         # Aggiunge «rispondi solo con il JSON» al prompt
@@ -282,7 +287,6 @@ def _orchestratore(richiesta, cartella, radice):
         chiedi=chiedi,
         agenti=agenti,
         avvisa=avvisa,
-        revisione=revisione_fn,
         max_compiti=6
     )
     
@@ -359,7 +363,9 @@ def main():
             args.nome, args.compito,
             args.cartella or os.getcwd(),
             os.environ.get('AGENTE_RADICE', DEFAULT_RADICE),
-            os.environ.get('AGENTE_PI', DEFAULT_PI)
+            os.environ.get('AGENTE_PI', DEFAULT_PI),
+            verifica_globale=args.verifica_globale,
+            senza_revisione=args.senza_revisione
         )
 
         if args.json:

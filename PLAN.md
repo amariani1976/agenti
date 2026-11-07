@@ -29,7 +29,7 @@ mv piani/test_ciclo_qualita.py tests/
   ```
   Verifica: `test -f tests/test_ciclo_qualita.py && timeout 200 python3 -m unittest tests/test_ciclo_qualita.py`
 
-- [ ] 4.1 Revisore e verifica generale nel percorso giusto di `bin/agente`
+- [x] 4.1 Revisore e verifica generale nel percorso giusto di `bin/agente`
   File: `bin/agente`
   Cosa fare: il passo 2 ha messo `revisione_fn` dentro `_orchestratore`, dove `args` non esiste (NameError: rompe
   `tests/test_agente_orchestratore.py`), e non ha collegato nulla a `ciclo.esegui`. Esegui lo script qui sotto
