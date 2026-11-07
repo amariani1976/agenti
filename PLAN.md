@@ -5,7 +5,7 @@ modello: esecutore
 verifica_globale: timeout 300 sh -c 'python3 -m unittest tests/test_agente.py tests/test_coda.py && python3 -m unittest tests/test_misura.py'
 accettazione: timeout 200 python3 -m unittest tests/test_ciclo.py tests/test_esecuzione.py
 spezzati: 1
-aiuti: 2
+aiuti: 3
 correzioni_semafori: 1
 ---
 # Piano: un agente unico che usa il modello locale nel modo migliore
@@ -198,7 +198,7 @@ FINE_CICLO
   Cosa fare: nuove opzioni `--file a,b`, `--verifica "comando"`, `--tentativi N` (1-5, predefinito 3), `--json`. Con `--verifica` il comando usa `ciclo.esegui` con `Esecuzione` (import da `../ciclo`), stampa l'esito (in JSON con `--json`, altrimenti esito, tentativi e file) ed esce con 0 se `fatto`, 1 se `non-fatto`, 2 per errori d'ingresso; senza `--verifica` resta tutto com'è oggi. Aggiungi le opzioni all'aiuto.
   Verifica: `timeout 120 python3 -m unittest tests/test_agente.py && python3 bin/agente --aiuto 2>&1 | grep -q -- "--verifica" || python3 bin/agente 2>&1 | grep -q -- "--verifica"`
 
-- [ ] 4. Correzione dei semafori rossi (giro 1)
+- [!] 4. Correzione dei semafori rossi (giro 1)
   File: `tests/test_cliente.py`, `tests/test_kb.py`, `tests/test_servizio.py`
   Cosa fare: a fine piano le regole di verifica del progetto (semafori) sono ROSSE. Capisci la causa di ogni
   controllo segnato con ❌ qui sotto e correggila nel codice, senza spegnere controlli, saltare test o cambiare
