@@ -80,4 +80,4 @@ class Esecuzione(object):
         except (FileNotFoundError, OSError):
             return []
         except subprocess.TimeoutExpired:
-            return (124, 'tempo massimo superato')
+            return []
