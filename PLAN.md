@@ -1,5 +1,6 @@
 ---
-stato: in-esecuzione
+stato: completato
+collaudo: superato
 ramo: ai/agente-ciclo
 modello: esecutore
 verifica_globale: timeout 300 python3 -m unittest tests/test_agente.py tests/test_ciclo.py tests/test_esecuzione.py tests/test_orchestratore.py tests/test_agente_catena.py tests/test_ciclo_qualita.py tests/test_ruoli.py
