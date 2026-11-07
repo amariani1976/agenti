@@ -1,5 +1,5 @@
 ---
-stato: bloccato
+stato: approvato
 ramo: ai/agente-ciclo
 modello: esecutore
 verifica_globale: timeout 300 sh -c 'python3 -m unittest tests/test_agente.py tests/test_coda.py && python3 -m unittest tests/test_misura.py'
@@ -207,19 +207,19 @@ FINE_CICLO
   ```
   Verifica: `grep -q "open(os.environ.get('CODA_MISURE', REGISTRO), 'a'" coda/misura.py && cd tests && timeout 120 python3 -m unittest test_coda test_misura`
 
-- [!] 4.2.1 Spostare `tests/test_ruoli.py` in `piani/`
+- [x] 4.2.1 Spostare `tests/test_ruoli.py` in `piani/`
   File: `tests/test_ruoli.py`, `piani/test_ruoli.py`
   Nota: uno spostamento cambia DUE file (quello cancellato e quello nuovo): entrambi sono nel perimetro. Non toccare il contenuto del file e non toccare altri file.
   Cosa fare: esegui ESATTAMENTE questo comando: `mv tests/test_ruoli.py piani/test_ruoli.py`
   Verifica: `test -f piani/test_ruoli.py && test ! -e tests/test_ruoli.py`
 
-- [ ] 4.2.2 Spostare `tests/test_orchestratore.py` in `piani/`
+- [x] 4.2.2 Spostare `tests/test_orchestratore.py` in `piani/`
   File: `tests/test_orchestratore.py`, `piani/test_orchestratore.py`
   Nota: come 4.2.1, uno spostamento cambia due file, entrambi nel perimetro. Non toccare altri file.
   Cosa fare: esegui ESATTAMENTE questo comando: `mv tests/test_orchestratore.py piani/test_orchestratore.py`
   Verifica: `test -f piani/test_orchestratore.py && test ! -e tests/test_orchestratore.py`
 
-- [ ] 4.2.3 Il passo 0 della fase in coda rimette i test in `tests/`
+- [x] 4.2.3 Il passo 0 della fase in coda rimette i test in `tests/`
   File: `piani/ruoli.md`
   Nota: si cambia solo il testo di `piani/ruoli.md` (non si esegue il `mv` che vi viene scritto). Non toccare altri file.
   Cosa fare: esegui ESATTAMENTE questo comando (copialo così com'è; aggiunge 4 righe subito prima di `- [ ] 1. I ruoli`):
