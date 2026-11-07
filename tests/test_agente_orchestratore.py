@@ -60,7 +60,7 @@ class Orchestratore(unittest.TestCase):
         self.assertFalse(os.path.exists(os.path.join(self.demo, 'scritto-dal-revisore.txt')))
         with open(self.reg) as f:
             righe = f.read().splitlines()
-        self.assertEqual(righe, ['agente demo esecutore-pensiero'] * 2)
+        self.assertEqual(righe, ['agente demo esecutore-pensiero'] * 3)  # piano + due letture del revisore
 
     def test_cartella_fuori_dai_progetti(self):
         r = self.lancia('orchestratore', '--cartella', self.d, 'rivedi')

@@ -25,7 +25,7 @@ mv piani/test_revisore_affidabile.py tests/
   ```
   Verifica: `test -f tests/test_revisore_affidabile.py && timeout 200 python3 -m unittest tests/test_revisore_affidabile.py`
 
-- [ ] 3.1 Il test dell'orchestratore conta le due letture del revisore
+- [x] 3.1 Il test dell'orchestratore conta le due letture del revisore
   File: `tests/test_agente_orchestratore.py`
   Cosa fare: l'unico ❌ dei semafori è `test_da_capo_a_fondo`. Non è un difetto del codice: dal passo 1 il revisore
   chiama `lancia` due volte, quindi il finto esegui-passo viene chiamato 3 volte (piano + due letture) e non 2.
