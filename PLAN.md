@@ -23,7 +23,7 @@ accettazione: cd piani && timeout 200 python3 -m unittest test_ruoli test_orches
   File: `bin/agente`
   Cosa fare: `agente orchestratore --cartella DIR "richiesta"` usa `orchestratore.esegui` con: `chiedi` = una chiamata al modello attraverso `Esecuzione.lancia` con prompt «rispondi solo con il JSON»; gli agenti `programmatore`, `revisore`, `ricercatore` di `ruoli` collegati a `Esecuzione`; `avvisa` che scrive sulla FIFO `orchestratore` con `avviso.scrivi` di `/opt/ai-vm/lib/avviso.py` (se manca, non fa nulla) e stampa l'avviso. Esce con 0 se `fatto`, 1 altrimenti, e stampa il resoconto in JSON con `--json`.
   Verifica: `timeout 120 python3 -m unittest tests/test_agente.py && grep -q "orchestratore" bin/agente`
-- [ ] 4. I test al loro posto
+- [x] 4. I test al loro posto
   File: `tests/test_ruoli.py`, `tests/test_orchestratore.py`
   Esegui:
   ```bash
