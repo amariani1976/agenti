@@ -73,6 +73,8 @@ chiaro), eseguito come utente `esecutore` con rete solo locale.
 
 Chi li usa: Claude (Bash) e Hermes (skill `agente` da Telegram) chiamano di solito l'`orchestratore`, che richiama gli altri; il runner dei piani usa direttamente il `programmatore`. L'orchestratore usa lo stesso modello: ogni agente richiamato è una chiamata in sequenza, mai in parallelo, perché la GPU ne regge una per volta.
 
+**Avvisi (richiesta dell'utente, 2026-11-07):** è l'orchestratore a svegliare Claude, senza timer: a compito finito e quando ha bisogno di aiuto (un agente esaurisce i tentativi, un esito non torna, una scelta non è sua) scrive una riga sulla FIFO `~/.local/state/ai-vm/orchestratore.avviso` con `lib/avviso.py` di ai-vm (`fatto`, `aiuto` o `fallito`, il compito e il motivo); Claude la ascolta con `progetto ascolta orchestratore`. Se il compito l'ha dato Hermes, lo stesso avviso va anche su Telegram.
+
 ## 5. Esecutore dei piani
 
 Oggi `esegui-passo` (root, `/opt/ai-vm/libexec`) chiama Hermes dell'utente `esecutore`. Si sostituisce quella sola riga
