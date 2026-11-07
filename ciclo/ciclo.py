@@ -214,6 +214,8 @@ def esegui(compito, cartella, verifica, file, tentativi=3, lancia=None, verifica
                     # Non si ritenta, si considera fatto
                     risultato['esito'] = 'fatto'
                     risultato['diff'] = _diff(cartella, file)
+                    for nome in file:
+                        _scrivi(cartella, nome, inizio[nome])
                     return risultato
             risultato['esito'] = 'fatto'
             risultato['diff'] = _diff(cartella, file)
