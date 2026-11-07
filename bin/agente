@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 """Esecutore del comando agente: avvia pi con un profilo specifico."""
+import argparse
+import json
 import os
 import re
 import subprocess
@@ -92,32 +94,130 @@ def comando(nome, compito, cartella, radice, pi=DEFAULT_PI):
     return argv, env, cartella
 
 
+def _stampa_json(dato):
+    """Stampa un dizionario come JSON."""
+    print(json.dumps(dato, indent=2, sort_keys=True))
+
+
+def _esegui_con_verifica(file_arg, verifica_arg, tentativi_arg, nome, compito, cartella, radice, pi):
+    """Esegue l'agente con verifica usando ciclo.esegui."""
+    # Importa i moduli ciclo
+    ciclo_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'ciclo')
+    sys.path.insert(0, ciclo_path)
+    import ciclo
+    from ciclo.esecuzione import Esecuzione
+
+    # Costruisci lista file (semplice split su virgola)
+    file_list = [f.strip() for f in file_arg.split(',') if f.strip()]
+    if not file_list:
+        print('errore: file vuoti per --file', file=sys.stderr)
+        sys.exit(2)
+
+    # Validazione tentativi (1-5)
+    tentativi = int(tentativi_arg)
+    if tentativi < 1 or tentativi > 5:
+        print('errore: tentativi deve essere tra 1 e 5', file=sys.stderr)
+        sys.exit(2)
+
+    if not verifica_arg or not verifica_arg.strip():
+        print('errore: verifica vuota per --verifica', file=sys.stderr)
+        sys.exit(2)
+
+    # Costruisci argv per il comando agente
+    argv, env, cwd = comando(nome, compito, cartella, radice, pi)
+
+    # Esegui pi con l'ambiente corrente più PI_CODING_AGENT_DIR
+    if not os.path.isdir(cwd):
+        print('errore: cartella inesistente: {0}'.format(cwd), file=sys.stderr)
+        sys.exit(2)
+
+    # Esegui il comando per ottenere argv
+    env_full = dict(os.environ, **env)
+    r = subprocess.run(argv, env=env_full, cwd=cwd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True, timeout=1200)
+    agente_codice = r.returncode
+    agente_uscita = r.stdout if r.stdout else ''
+
+    # Esegui verifica
+    r_verifica = subprocess.run(['python3', '-c', verifica_arg], cwd=cwd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True, timeout=120)
+    verifica_codice = r_verifica.returncode
+    verifica_uscita = r_verifica.stdout if r_verifica.stdout else ''
+
+    # Costruisci Esecuzione per il ciclo
+    esegui_cmd = [sys.executable]
+    esecuzione = Esecuzione(radice, esegui_cmd, tempo=1200)
+
+    # Esegui ciclo.esegui
+    risultato = ciclo.esegui(
+        compito=' '.join(compito) if isinstance(compito, list) else compito,
+        cartella=cwd,
+        verifica=verifica_arg,
+        file=file_list,
+        tentativi=tentativi,
+        lancia=esecuzione.lancia,
+        verifica_fn=esecuzione.verifica,
+        lezioni=esecuzione.lezioni
+    )
+
+    return risultato
+
+
 def main():
     """Main: parse degli argomenti e esecuzione del comando."""
-    # Parse manuale degli argomenti
-    args = sys.argv[1:]
+    parser = argparse.ArgumentParser(
+        description='Esecutore del comando agente: avvia pi con un profilo specifico.',
+        add_help=False
+    )
+    parser.add_argument('nome', nargs='?', help='nome del profilo')
+    parser.add_argument('compito', nargs='*', help='compito da eseguire')
+    parser.add_argument('--cartella', help='cartella di lavoro')
+    parser.add_argument('--file', help='lista di file separati da virgola per --verifica')
+    parser.add_argument('--verifica', help='comando di verifica da passare a ciclo.esegui')
+    parser.add_argument('--tentativi', type=int, default=3, help='numero di tentativi (1-5, default 3)')
+    parser.add_argument('--json', action='store_true', help='output JSON')
+    parser.add_argument('--aiuto', action='store_true', help='mostra aiuto e usa argparse')
 
-    cartella = None
-    nome = None
-    compito = []
+    args = parser.parse_args()
 
-    i = 0
-    while i < len(args):
-        arg = args[i]
-        if arg == '--cartella':
-            if i + 1 >= len(args):
-                print('errore: --cartella richiede un argomento', file=sys.stderr)
-                sys.exit(1)
-            cartella = args[i + 1]
-            i += 2
+    if args.aiuto:
+        parser.print_help()
+        sys.exit(0)
+
+    # Se ci sono opzioni di verifica, usa il nuovo percorso
+    if args.verifica:
+        if not args.file:
+            print('errore: --file richiesto con --verifica', file=sys.stderr)
+            sys.exit(2)
+        if args.nome is None:
+            print('errore: nome del profilo richiesto', file=sys.stderr)
+            sys.exit(2)
+        if not args.compito:
+            print('errore: compito richiesto', file=sys.stderr)
+            sys.exit(2)
+
+        risultato = _esegui_con_verifica(
+            args.file, args.verifica, args.tentativi,
+            args.nome, args.compito,
+            args.cartella or os.getcwd(),
+            os.environ.get('AGENTE_RADICE', DEFAULT_RADICE),
+            os.environ.get('AGENTE_PI', DEFAULT_PI)
+        )
+
+        if args.json:
+            _stampa_json(risultato)
         else:
-            # Il primo argomento non flag è il nome, il resto è il compito
-            if nome is None:
-                nome = arg
-                i += 1
-            else:
-                compito.append(arg)
-                i += 1
+            print('esito: {0}'.format(risultato['esito']))
+            print('tentativi: {0}'.format(len(risultato['tentativi'])))
+            print('file: {0}'.format(', '.join(risultato['file'])))
+
+        if risultato['esito'] == 'fatto':
+            sys.exit(0)
+        else:
+            sys.exit(1)
+
+    # Altrimenti usa il vecchio percorso
+    cartella = args.cartella
+    nome = args.nome
+    compito = args.compito
 
     if nome is None:
         print('errore: nome del profilo richiesto', file=sys.stderr)
@@ -138,12 +238,12 @@ def main():
     try:
         argv, env, cwd = comando(nome, compito, cartella, radice, pi)
     except ValueError as e:
-        print(f'errore: {e}', file=sys.stderr)
+        print('errore: {0}'.format(e), file=sys.stderr)
         sys.exit(1)
 
     # Esegui pi con l'ambiente corrente più PI_CODING_AGENT_DIR e ne restituisce il codice di uscita
     if not os.path.isdir(cwd):
-        print(f'errore: cartella inesistente: {cwd}', file=sys.stderr)
+        print('errore: cartella inesistente: {0}'.format(cwd), file=sys.stderr)
         sys.exit(1)
 
     sys.exit(subprocess.run(argv, env=dict(os.environ, **env), cwd=cwd).returncode)
