@@ -6,6 +6,7 @@ verifica_globale: timeout 200 python3 -m unittest tests/test_agente.py tests/tes
 accettazione: cd piani && timeout 200 python3 -m unittest test_ruoli test_orchestratore
 collaudi: 1
 spezzati: 1
+aiuti: 1
 ---
 # Piano: ruoli e orchestratore
 
@@ -41,7 +42,7 @@ Il collaudo ha trovato difetti che i test della fase non coprivano: `agente orch
   File: `ciclo/risposta.py`, `ciclo/ruoli.py`, `ciclo/orchestratore.py`
   Cosa fare: nuovo `ciclo/risposta.py` con `primo_json(testo)`: `None` se il testo e' vuoto o `None`; se c'e' un blocco ```json … ``` usa il suo contenuto; poi prova `json.JSONDecoder().raw_decode(testo, i)` da ogni posizione `i` in cui c'e' `{`, in ordine, e restituisce il primo risultato che e' un `dict`; altrimenti `None`. In `ruoli.py` e `orchestratore.py` togliere `_json_da_risposta` e usare `from risposta import primo_json` (i moduli si importano con `ciclo/` in `sys.path`, come gia' fa `from ciclo import …`).
   Verifica: `cd piani && timeout 120 python3 -m unittest test_risposta test_ruoli test_orchestratore`
-- [ ] 6.1 Implementare `_elenco` (spezzato)
+- [!] 6.1 Implementare `_elenco` (spezzato)
   File: `ciclo/ruoli.py`
   Cosa fare: sostituire `_prima_stato` con `_elenco(cartella)` che restituisce nomi di `git ls-files` più `git ls-files --others --exclude-standard` (percorsi relativi anche in sottocartelle)
   Verifica: `cd piani && timeout 120 python3 -m unittest test_ruoli_lettura.test_ruoli_lettura.SolaLettura.test_sottocartella_ripristinata`
