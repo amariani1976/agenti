@@ -11,7 +11,7 @@ import sys
 # Predefiniti
 DEFAULT_PI = os.path.expanduser('~/.local/bin/pi')
 # La radice è la cartella sopra bin/
-DEFAULT_RADICE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+DEFAULT_RADICE = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
 
 # Regex per nome valido: inizia con lettera minuscola, poi 0-40 caratteri (lettera minuscola, cifra, trattino)
 NOME_VALIDO = re.compile(r'^[a-z][a-z0-9-]{0,40}$')
@@ -201,7 +201,7 @@ def _orchestratore(richiesta, cartella, radice):
     - avvisa: scrive sulla FIFO orchestratore con avviso.scrivi e stampa l'avviso
     """
     # Inserisce il ciclo in sys.path e importa i moduli
-    ciclo_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'ciclo')
+    ciclo_path = os.path.join(os.path.dirname(os.path.dirname(os.path.realpath(__file__))), 'ciclo')
     sys.path.insert(0, ciclo_path)
     import ruoli
     import orchestratore

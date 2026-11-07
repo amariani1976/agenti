@@ -25,7 +25,7 @@ mv piani/test_agente_catena.py tests/
   Verifica: `test -f tests/test_agente_catena.py && timeout 200 python3 -m unittest tests/test_agente_catena.py`
 
 ## Correzioni del collaudo
-- [ ] 3. realpath in tutto bin/agente
+- [x] 3. realpath in tutto bin/agente
   File: `tests/test_agente_collegamento.py`, `bin/agente`
   Cosa fare: il passo 1 chiedeva `os.path.realpath(__file__)` in tutto il file, ma restano due `os.path.abspath(__file__)`: in `DEFAULT_RADICE` (riga 14) e in `_orchestratore` (calcolo di `ciclo_path`). Da un collegamento simbolico il percorso semplice non trova i profili («profilo non esistente») e l'orchestratore non trova i moduli (`ModuleNotFoundError: ruoli`). Prima crea il test qui sotto così com'è, poi in `bin/agente` sostituisci in quelle due righe `os.path.abspath(__file__)` con `os.path.realpath(__file__)`. Non cambiare altro.
   Esegui:
