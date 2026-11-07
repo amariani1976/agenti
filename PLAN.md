@@ -198,7 +198,7 @@ FINE_CICLO
   Cosa fare: nuove opzioni `--file a,b`, `--verifica "comando"`, `--tentativi N` (1-5, predefinito 3), `--json`. Con `--verifica` il comando usa `ciclo.esegui` con `Esecuzione` (import da `../ciclo`), stampa l'esito (in JSON con `--json`, altrimenti esito, tentativi e file) ed esce con 0 se `fatto`, 1 se `non-fatto`, 2 per errori d'ingresso; senza `--verifica` resta tutto com'è oggi. Aggiungi le opzioni all'aiuto.
   Verifica: `timeout 120 python3 -m unittest tests/test_agente.py && python3 bin/agente --aiuto 2>&1 | grep -q -- "--verifica" || python3 bin/agente 2>&1 | grep -q -- "--verifica"`
 
-- [ ] 4.1 Semafori, parte 1: il registro delle misure si legge al momento della scrittura
+- [x] 4.1 Semafori, parte 1: il registro delle misure si legge al momento della scrittura
   File: `coda/misura.py`
   Nota: `test_misura` fallisce solo con `discover`: `test_coda` importa `proxy` (e quindi `misura`) prima che `test_misura` imposti `CODA_MISURE`, così `REGISTRO` resta quello predefinito. Il test non si tocca: si corregge `misura.py`. Non toccare altri file.
   Cosa fare: esegui ESATTAMENTE questo comando (cambia una riga sola):

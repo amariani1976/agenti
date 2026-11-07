@@ -93,7 +93,7 @@ class Osservatore:
         if errore:
             voce['errore'] = str(errore)[:200]
         try:
-            with _scrittura, open(REGISTRO, 'a', encoding='utf-8') as f:
+            with _scrittura, open(os.environ.get('CODA_MISURE', REGISTRO), 'a', encoding='utf-8') as f:
                 f.write(json.dumps(voce, ensure_ascii=False) + '\n')
         except OSError:
             pass
