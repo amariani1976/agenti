@@ -127,8 +127,10 @@ def _controlla(cartella, verifica, file):
     if not file:
         raise ValueError('nessun file nel perimetro')
     for nome in file:
-        pulito = os.path.normpath(nome) if nome else ''
-        if not pulito or os.path.isabs(pulito) or pulito == '..' or pulito.startswith('..' + os.sep):
+        if nome is None:
+            raise ValueError('elemento None nel perimetro')
+        pulito = os.path.normpath(nome)
+        if pulito == '' or pulito == '.' or os.path.isabs(pulito) or pulito == '..' or pulito.startswith('..' + os.sep):
             raise ValueError('file fuori dal progetto: ' + repr(nome))
 
 
