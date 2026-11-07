@@ -102,8 +102,8 @@ def _stampa_json(dato):
 
 def _esegui_con_verifica(file_arg, verifica_arg, tentativi_arg, nome, compito, cartella, radice, pi):
     """Esegue l'agente con verifica usando ciclo.esegui."""
-    # Calcola la cartella dei moduli usando realpath(__file__)
-    agente_path = os.path.realpath(__file__)
+    # Calcola la cartella dei moduli usando realpath(__file__) in modo assoluto
+    agente_path = os.path.abspath(os.path.realpath(__file__))
     # bin/c -> bin/.. = root, then root/ciclo
     moduli_path = os.path.join(os.path.dirname(os.path.dirname(agente_path)), 'ciclo')
     
@@ -116,13 +116,15 @@ def _esegui_con_verifica(file_arg, verifica_arg, tentativi_arg, nome, compito, c
     exec_spec.loader.exec_module(exec_module)
     ciclo.Esecuzione = exec_module.Esecuzione
 
-    # Costruisci lista file con validazione
+    # Costruisci lista file con validazione robusta
     file_list = []
     for f in file_arg.split(','):
         f = f.strip()
         if f:
-            # I file devono essere relativi, senza .., dentro la cartella di lavoro
-            if '..' in f or f.startswith('/'):
+            # I file devono essere relativi, senza .., senza path assoluti
+            # Usa os.path.isabs() per path assoluti (es. /foo, //absolute, ~)
+            # Usa os.path.normpath() per normalizzare e verificare che non contenga ..
+            if os.path.isabs(f) or '..' in os.path.normpath(f):
                 print('errore: file non valido: {0}'.format(f), file=sys.stderr)
                 sys.exit(2)
             file_list.append(f)
@@ -140,6 +142,11 @@ def _esegui_con_verifica(file_arg, verifica_arg, tentativi_arg, nome, compito, c
         print('errore: tentativi deve essere tra 1 e 5', file=sys.stderr)
         sys.exit(2)
 
+    # Validazione preliminare di cartella prima di progetto()
+    if not cartella:
+        print('errore: cartella non può essere vuota o None', file=sys.stderr)
+        sys.exit(2)
+
     # Determina esegui da AGENTE_ESEGUI o default
     esegui_fn = os.environ.get('AGENTE_ESEGUI')
     if esegui_fn:
@@ -148,13 +155,21 @@ def _esegui_con_verifica(file_arg, verifica_arg, tentativi_arg, nome, compito, c
         esegui = ['sudo', '-n', '-u', 'esecutore', '/opt/ai-vm/libexec/esegui-passo']
 
     # Crea Esecuzione (stesse variabili AGENTE_ESEGUI e AGENTE_PROGETTI, modello esegutore-pensiero)
+    # Default più robusto: usa home se /srv/progetti non esiste
+    progetti_dir = os.environ.get('AGENTE_PROGETTI')
+    if not progetti_dir:
+        # Default dinamico: prova /srv/progetti, altrimenti ~/progetti
+        if os.path.isdir('/srv/progetti'):
+            progetti_dir = '/srv/progetti'
+        else:
+            progetti_dir = os.path.expanduser('~/progetti')
     esecuzione = ciclo.Esecuzione(
-        radice=os.environ.get('AGENTE_PROGETTI', '/srv/progetti'),
+        radice=progetti_dir,
         esegui=esegui,
         modello='esecutore-pensiero'
     )
 
-    # Valida cartella come progetto
+    # Valida cartella come progetto con gestione ValueError
     try:
         esecuzione.progetto(cartella)
     except ValueError as ex:
@@ -162,10 +177,11 @@ def _esegui_con_verifica(file_arg, verifica_arg, tentativi_arg, nome, compito, c
         sys.exit(2)
 
     # Esegui ciclo.esegui con tentativi da 1 a 5
+    # Gestisci verifica_arg=None: passa None ma ciclo.esegui lo gestisce
     risultato = ciclo.esegui(
         compito=' '.join(compito) if isinstance(compito, list) else compito,
         cartella=cartella,
-        verifica=verifica_arg,
+        verifica=verifica_arg if verifica_arg else None,
         file=file_list,
         tentativi=tentativi,
         lancia=esecuzione.lancia,
@@ -198,9 +214,17 @@ def _orchestratore(richiesta, cartella, radice):
     else:
         esegui = ['sudo', '-n', '-u', 'esecutore', '/opt/ai-vm/libexec/esegui-passo']
     
-    # Crea Esecuzione
+    # Crea Esecuzione (stessa logica dinamica per AGENTE_PROGETTI)
+    progetti_dir = os.environ.get('AGENTE_PROGETTI')
+    if not progetti_dir:
+        # Default dinamico: prova /srv/progetti, altrimenti ~/progetti
+        if os.path.isdir('/srv/progetti'):
+            progetti_dir = '/srv/progetti'
+        else:
+            progetti_dir = os.path.expanduser('~/progetti')
+    
     e = esecuzione.Esecuzione(
-        radice=os.environ.get('AGENTE_PROGETTI', '/srv/progetti'),
+        radice=progetti_dir,
         esegui=esegui,
         modello='esecutore-pensiero'
     )
