@@ -6,7 +6,7 @@ verifica_globale: timeout 200 python3 -m unittest tests/test_agente.py tests/tes
 accettazione: cd piani && timeout 200 python3 -m unittest test_ruoli test_orchestratore
 collaudi: 1
 spezzati: 2
-aiuti: 1
+aiuti: 2
 ---
 # Piano: ruoli e orchestratore
 
@@ -171,7 +171,7 @@ EOF
   File: `bin/agente`
   Cosa fare: togliere l'opzione `--orchestratore` e far riconoscere `orchestratore` come primo argomento (`nome`): `agente orchestratore --cartella DIR [--json] "richiesta"`. Senza richiesta o senza `--cartella`: messaggio su stderr e uscita 2, senza traceback. In `_orchestratore`: niente `import sys` locale; `sys.path.insert(0, <radice repo>/ciclo)` e poi `import ruoli, orchestratore, esecuzione` (togliere gli `spec_from_file_location`); `Esecuzione(radice=os.environ.get('AGENTE_PROGETTI', '/srv/progetti'), esegui=[os.environ['AGENTE_ESEGUI']] se la variabile c'e', altrimenti ['sudo', '-n', '-u', 'esecutore', '/opt/ai-vm/libexec/esegui-passo'], modello='esecutore-pensiero')`; se `esecuzione.progetto(cartella)` solleva `ValueError`: messaggio su stderr e uscita 2. Agenti collegati: `'programmatore': lambda c, d: ruoli.programmatore(c, d, lancia=e.lancia, verifica_fn=e.verifica, lezioni=e.lezioni)`, `'revisore': lambda c, d: ruoli.revisore(c, d, e.lancia)`, `'ricercatore': lambda c, d: ruoli.ricercatore(c, d, e.lancia)`. `chiedi` restituisce l'uscita di `e.lancia(prompt + '\n\nRispondi solo con il JSON.', cartella)` (stringa vuota se il codice non e' 0). `avvisa` come ora (FIFO `orchestratore` se `/opt/ai-vm/lib/avviso.py` c'e', e stampa su stderr). Con `--json` stampa il resoconto in JSON su stdout, e nient'altro su stdout; uscita 0 se `fatto`, 1 altrimenti.
   Verifica: `timeout 200 python3 -m unittest tests/test_agente.py piani/test_agente_orchestratore.py`
-- [ ] 9. I test nuovi al loro posto
+- [!] 9. I test nuovi al loro posto
   File: `tests/test_risposta.py`, `tests/test_ruoli_lettura.py`, `tests/test_orchestratore_casi.py`, `tests/test_agente_orchestratore.py`
   Esegui:
   ```bash
