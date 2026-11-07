@@ -4,6 +4,7 @@ ramo: ai/orchestratore-revisione
 modello: esecutore
 verifica_globale: timeout 300 python3 -m unittest tests/test_agente.py tests/test_agente_catena.py tests/test_orchestratore.py tests/test_ciclo_qualita.py
 accettazione: cd piani && timeout 60 python3 -m unittest test_orchestratore_revisione
+collaudi: 1
 ---
 # Piano: il programmatore dell'orchestratore usa il revisore
 
