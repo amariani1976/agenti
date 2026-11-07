@@ -5,6 +5,7 @@ modello: esecutore
 verifica_globale: timeout 200 python3 -m unittest tests/test_agente.py tests/test_coda.py tests/test_misura.py
 accettazione: timeout 200 python3 -m unittest tests/test_ciclo.py tests/test_esecuzione.py
 spezzati: 1
+aiuti: 1
 ---
 # Piano: un agente unico che usa il modello locale nel modo migliore
 
@@ -12,7 +13,7 @@ spezzati: 1
 Hermes e Claude devono poter affidare un compito al modello locale con lo stesso metodo che fa funzionare il runner dei piani: comando di verifica che deve passare, al massimo 3 tentativi con l'errore del tentativo prima, perimetro dei file con annullamento di ciò che esce, lezioni dalla KB, esito chiaro. Agente e verifica passano da `esegui-passo` (utente `esecutore`, rete solo locale, guardiano dei comandi appesi). I test sono già pronti e non si modificano: sono il contratto. Python 3.6, sola libreria standard, niente f-string nei file nuovi. Ogni comando con `timeout`. Non usare git per fare commit: il ciclo usa git solo per leggere e ripristinare.
 
 ## Passi
-- [ ] 1.1 Creare il ciclo di base con validazione (spezzato)
+- [!] 1.1 Creare il ciclo di base con validazione (spezzato)
   File: `ciclo/ciclo.py`
   Cosa fare: creare il file con la funzione `esegui` che fa: validazione input (ValueError per cartella non git, file vuoti/con.., verifica vuota), ritorno iniziale `{'esito': 'non-fatto', 'tentativi': [], 'file': [], 'diff': ''}`
   Verifica: `timeout 120 python3 -m unittest tests/test_ciclo.py Ciclo.test_errori_di_ingresso`
