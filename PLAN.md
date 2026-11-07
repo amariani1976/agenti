@@ -5,6 +5,7 @@ modello: esecutore
 verifica_globale: timeout 300 python3 -m unittest tests/test_agente.py tests/test_ciclo.py tests/test_esecuzione.py tests/test_orchestratore.py tests/test_agente_catena.py tests/test_ciclo_qualita.py
 accettazione: cd piani && timeout 200 python3 -m unittest test_revisore_affidabile
 correzioni_semafori: 1
+aiuti: 1
 ---
 # Piano: un revisore affidabile
 
@@ -24,7 +25,7 @@ mv piani/test_revisore_affidabile.py tests/
   ```
   Verifica: `test -f tests/test_revisore_affidabile.py && timeout 200 python3 -m unittest tests/test_revisore_affidabile.py`
 
-- [ ] 3. Correzione dei semafori rossi (giro 1)
+- [!] 3. Correzione dei semafori rossi (giro 1)
   File: `tests/test_cliente.py`, `tests/test_kb.py`, `tests/test_servizio.py`
   Cosa fare: a fine piano le regole di verifica del progetto (semafori) sono ROSSE. Capisci la causa di ogni
   controllo segnato con ❌ qui sotto e correggila nel codice, senza spegnere controlli, saltare test o cambiare
