@@ -102,28 +102,28 @@ def _stampa_json(dato):
 
 def _esegui_con_verifica(file_arg, verifica_arg, tentativi_arg, nome, compito, cartella, radice, pi):
     """Esegue l'agente con verifica usando ciclo.esegui."""
+    # Calcola la cartella dei moduli usando realpath(__file__)
+    agente_path = os.path.realpath(__file__)
+    # bin/c -> bin/.. = root, then root/ciclo
+    moduli_path = os.path.join(os.path.dirname(os.path.dirname(agente_path)), 'ciclo')
+    
     # Importa i moduli ciclo senza modificare sys.path globale
-    ciclo_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'ciclo')
-    # Carica il modulo ciclo/ciclo.py come "ciclo"
-    spec = importlib.util.spec_from_file_location("ciclo", os.path.join(ciclo_path, 'ciclo.py'))
+    spec = importlib.util.spec_from_file_location("ciclo", os.path.join(moduli_path, 'ciclo.py'))
     ciclo = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(ciclo)
-    # Carica anche esecuzione.py e aggiungi Esecuzione al modulo ciclo
-    exec_spec = importlib.util.spec_from_file_location("ciclo.esecuzione", os.path.join(ciclo_path, 'esecuzione.py'))
+    exec_spec = importlib.util.spec_from_file_location("ciclo.esecuzione", os.path.join(moduli_path, 'esecuzione.py'))
     exec_module = importlib.util.module_from_spec(exec_spec)
     exec_spec.loader.exec_module(exec_module)
     ciclo.Esecuzione = exec_module.Esecuzione
 
-    # Costruisci lista file con validazione path traversal
+    # Costruisci lista file con validazione
     file_list = []
     for f in file_arg.split(','):
         f = f.strip()
         if f:
-            # Risolvi il percorso relativo rispetto a radice e verifica path traversal
-            abs_path = os.path.normpath(os.path.join(radice, f))
-            radice_abs = os.path.abspath(radice)
-            if not abs_path.startswith(radice_abs + os.sep) and abs_path != radice_abs:
-                print('errore: path traversal rilevato: {0}'.format(f), file=sys.stderr)
+            # I file devono essere relativi, senza .., dentro la cartella di lavoro
+            if '..' in f or f.startswith('/'):
+                print('errore: file non valido: {0}'.format(f), file=sys.stderr)
                 sys.exit(2)
             file_list.append(f)
     if not file_list:
@@ -140,42 +140,32 @@ def _esegui_con_verifica(file_arg, verifica_arg, tentativi_arg, nome, compito, c
         print('errore: tentativi deve essere tra 1 e 5', file=sys.stderr)
         sys.exit(2)
 
-    if not verifica_arg or not verifica_arg.strip():
-        print('errore: verifica vuota per --verifica', file=sys.stderr)
-        sys.exit(2)
+    # Determina esegui da AGENTE_ESEGUI o default
+    esegui_fn = os.environ.get('AGENTE_ESEGUI')
+    if esegui_fn:
+        esegui = [esegui_fn]
+    else:
+        esegui = ['sudo', '-n', '-u', 'esecutore', '/opt/ai-vm/libexec/esegui-passo']
 
-    # Sanitizza verifica_arg: solo caratteri alfanumerici, spazi, punti, virgole, trattini
-    # Rimuove caratteri pericolosi per evitare injection
-    verifica_sanitized = re.sub(r'[^a-zA-Z0-9_\-\./: \(\);|&$*]', '', verifica_arg)
-    if len(verifica_sanitized) == 0 or len(verifica_sanitized) < len(verifica_arg):
-        print('errore: caratteri non consentiti nel comando di verifica', file=sys.stderr)
-        sys.exit(2)
+    # Crea Esecuzione (stesse variabili AGENTE_ESEGUI e AGENTE_PROGETTI, modello esegutore-pensiero)
+    esecuzione = ciclo.Esecuzione(
+        radice=os.environ.get('AGENTE_PROGETTI', '/srv/progetti'),
+        esegui=esegui,
+        modello='esecutore-pensiero'
+    )
 
-    # Costruisci argv per il comando agente
-    argv, env, cwd = comando(nome, compito, cartella, radice, pi)
-
-    # Esegui pi con l'ambiente corrente più PI_CODING_AGENT_DIR
-    if not os.path.isdir(cwd):
-        print('errore: cartella inesistente: {0}'.format(cwd), file=sys.stderr)
-        sys.exit(2)
-
-    # Esegui il comando con timeout per evitare blocco infinito
-    env_full = dict(os.environ, **env)
+    # Valida cartella come progetto
     try:
-        subprocess.run(argv, env=env_full, cwd=cwd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True, timeout=120)
-    except subprocess.TimeoutExpired:
-        print('errore: timeout superato', file=sys.stderr)
+        esecuzione.progetto(cartella)
+    except ValueError as ex:
+        print('errore: ' + str(ex), file=sys.stderr)
         sys.exit(2)
 
-    # Costruisci Esecuzione per il ciclo (timeout gestito da ciclo.esegui)
-    # Passa una funzione lambda come esegui, che restituisce [sys.executable, 'bin/agente']
-    esecuzione = Esecuzione(radice, lambda: [sys.executable, os.path.join(DEFAULT_RADICE, 'bin', 'agente')], tempo=60)
-
-    # Esegui ciclo.esegui
+    # Esegui ciclo.esegui con tentativi da 1 a 5
     risultato = ciclo.esegui(
         compito=' '.join(compito) if isinstance(compito, list) else compito,
-        cartella=cwd,
-        verifica=verifica_sanitized,
+        cartella=cartella,
+        verifica=verifica_arg,
         file=file_list,
         tentativi=tentativi,
         lancia=esecuzione.lancia,
@@ -183,6 +173,7 @@ def _esegui_con_verifica(file_arg, verifica_arg, tentativi_arg, nome, compito, c
         lezioni=esecuzione.lezioni
     )
 
+    # Restituisci il risultato senza uscire
     return risultato
 
 
