@@ -1,5 +1,5 @@
 ---
-stato: approvato
+stato: in-esecuzione
 ramo: ai/agente-ciclo
 modello: esecutore
 verifica_globale: timeout 300 sh -c 'python3 -m unittest tests/test_agente.py tests/test_coda.py && python3 -m unittest tests/test_misura.py'
