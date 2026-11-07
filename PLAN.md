@@ -30,23 +30,15 @@ mv piani/test_revisore_tre_letture.py tests/
   ```
   Verifica: `test -f tests/test_revisore_tre_letture.py && timeout 200 python3 -m unittest tests/test_revisore_tre_letture.py`
 
-- [!] 4.1 Rinominare TOKEN in test_kb.py (spezzato)
-  File: `tests/test_kb.py`
-  Cosa fare: sostituire `TOKEN = 'token-di-prova-0123456789'` con `CHIAVA_DI_TEST = 'finto-token-x-123'` e aggiornare tutti gli usi
-  Verifica: `grep -c "TOKEN = 'token-di-prova" tests/test_kb.py`
+- [ ] 4.1 L'orchestratore conta tre letture del revisore
+  File: `tests/test_agente_orchestratore.py`
+  Cosa fare: l'unico controllo ❌ dei semafori è `test_da_capo_a_fondo`, che si aspetta ancora piano + due letture (3 righe) mentre ora le letture sono tre (4 righe). Gli ⚠️ sui TOKEN nei test sono solo avvisi su file fuori dal piano: non toccarli. Esegui:
+  ```bash
+sed -i "s/\['agente demo esecutore-pensiero'\] \* 3)  # piano + due letture del revisore/['agente demo esecutore-pensiero'] * 4)  # piano + tre letture del revisore/" tests/test_agente_orchestratore.py
+  ```
+  Verifica: `grep -q "\* 4)  # piano + tre letture del revisore" tests/test_agente_orchestratore.py && timeout 200 python3 -m unittest tests.test_agente_orchestratore`
 
-- [ ] 4.2 Rinominare TOKEN in test_servizio.py (spezzato)
-  File: `tests/test_servizio.py`
-  Cosa fare: sostituire `TOKEN = 'token-di-prova-0123456789'` con `CHIAVA_DI_TEST = 'finto-token-x-123'` e aggiornare `self.stato = servizio.Kb(..., TOKEN)` e `chiama(..., token=TOKEN)`
-  Verifica: `grep -c "TOKEN = 'token-di-prova" tests/test_servizio.py`
-
-- [ ] 4.3 Correggere test_token_sbagliato in test_cliente.py (spezzato)
-  File: `tests/test_cliente.py`
-  Cosa fare: sostituire `TOKEN = 'token-di-prova-0123456789'` con `CHIAVA_DI_TEST = 'finto-token-x-123'`, `env=dict(os.environ, KB_URL=..., KB_TOKEN=TOKEN` con `KB_TOKEN=CHIAVA_DI_TEST`, e `KB_TOKEN='sbagliato'` con `KB_TOKEN='finto-sbagliato'`
-  Verifica: `grep "TOKEN = 'token-di-prova" tests/test_cliente.py`
-
-- [ ] 4.4 Verifica test_rifiuta_segreti (spezzato)
-  File: `tests/test_kb.py`
-  Cosa fare: eseguire solo il test che stava fallendo
-  Verifica: `/opt/ai-vm/bin/semafori --base 1b7d0fc49af6; test $? -lt 2`
-
+- [ ] 4.2 Semafori di nuovo non rossi
+  File: nessuno (solo controllo)
+  Cosa fare: eseguire i semafori; se escono rossi fermarsi e spiegare quale controllo è ❌.
+  Verifica: `timeout 300 /opt/ai-vm/bin/semafori --base 1b7d0fc49af6; test $? -lt 2`
