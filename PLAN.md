@@ -34,11 +34,19 @@ mv piani/test_orchestratore_revisione.py tests/
 sed -i "s/'compito': compito\['compito'\]}/'compito': compito}/" bin/agente
   ```
   Verifica: `cd piani && timeout 60 python3 -m unittest test_orchestratore_revisione_compito && cd .. && timeout 200 python3 -m unittest tests/test_orchestratore_revisione.py tests/test_agente_catena.py tests/test_orchestratore.py`
-- [!] 4. I test al loro posto
-  File: `tests/test_orchestratore_revisione_compito.py`, `piani/test_orchestratore_revisione.py`
-  Perché: il passo 2 ha copiato il test invece di spostarlo; in `piani/` ne resta un doppione.
+- [ ] 4.1 Il test del compito al suo posto
+  File: `piani/test_orchestratore_revisione_compito.py`, `tests/test_orchestratore_revisione_compito.py`
+  Perché: il test `test_la_revisione_accetta_il_compito_come_testo` si sposta da `piani/` a `tests/`, non si toglie: il contenuto resta identico.
   Esegui:
   ```bash
-mv piani/test_orchestratore_revisione_compito.py tests/ && rm -f piani/test_orchestratore_revisione.py
+mv piani/test_orchestratore_revisione_compito.py tests/test_orchestratore_revisione_compito.py
   ```
-  Verifica: `test -f tests/test_orchestratore_revisione_compito.py && test ! -e piani/test_orchestratore_revisione.py && test ! -e piani/test_orchestratore_revisione_compito.py && timeout 60 python3 -m unittest tests/test_orchestratore_revisione_compito.py tests/test_orchestratore_revisione.py`
+  Verifica: `test -f tests/test_orchestratore_revisione_compito.py && test ! -e piani/test_orchestratore_revisione_compito.py && grep -q test_la_revisione_accetta_il_compito_come_testo tests/test_orchestratore_revisione_compito.py && timeout 60 python3 -m unittest tests/test_orchestratore_revisione_compito.py`
+- [ ] 4.2 Via il doppione in piani/
+  File: `piani/test_orchestratore_revisione.py`
+  Perché: il passo 2 l'ha copiato invece di spostarlo; il test `test_il_programmatore_dell_orchestratore_ha_la_revisione` resta identico in `tests/test_orchestratore_revisione.py`, qui si toglie solo il doppione.
+  Esegui:
+  ```bash
+cmp piani/test_orchestratore_revisione.py tests/test_orchestratore_revisione.py && rm piani/test_orchestratore_revisione.py
+  ```
+  Verifica: `test ! -e piani/test_orchestratore_revisione.py && grep -q test_il_programmatore_dell_orchestratore_ha_la_revisione tests/test_orchestratore_revisione.py && timeout 60 python3 -m unittest tests/test_orchestratore_revisione.py tests/test_orchestratore_revisione_compito.py`
