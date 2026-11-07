@@ -8,6 +8,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import ammissione  # noqa: E402
+import misura  # noqa: E402
 import stima  # noqa: E402
 
 AMMESSI = ('/v1/chat/completions', '/v1/completions')
@@ -30,7 +31,7 @@ class Gestore(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(b)
 
-    def _inoltra(self, corpo):
+    def _inoltra(self, corpo, osserva=None):
         h = {k: v for k, v in self.headers.items() if k.lower() not in SALTA and not k.lower().startswith('x-')}
         req = urllib.request.Request(self.upstream.rstrip('/') + self.path, data=corpo, method=self.command, headers=h)
         try:
@@ -38,9 +39,19 @@ class Gestore(BaseHTTPRequestHandler):
         except urllib.error.HTTPError as e:
             r = e
         except (urllib.error.URLError, OSError) as e:
+            if osserva:
+                osserva.chiudi(502, e)
             return self._json(502, {'error': {'message': 'motore non raggiungibile: %s' % e}})
+        stato = r.status if hasattr(r, 'status') else r.code
+        try:
+            self._copia(r, stato, osserva)
+        finally:
+            if osserva:
+                osserva.chiudi(stato)
+
+    def _copia(self, r, stato, osserva):
         with r:
-            self.send_response(r.status if hasattr(r, 'status') else r.code)
+            self.send_response(stato)
             for k, v in r.headers.items():
                 if k.lower() not in SALTA:
                     self.send_header(k, v)
@@ -50,6 +61,8 @@ class Gestore(BaseHTTPRequestHandler):
                 pezzo = r.read1(65536) if hasattr(r, 'read1') else r.read(65536)
                 if not pezzo:
                     break
+                if osserva:
+                    osserva.dati(pezzo)
                 self.wfile.write(pezzo)
                 self.wfile.flush()
 
@@ -75,7 +88,7 @@ class Gestore(BaseHTTPRequestHandler):
         except ammissione.Pieno as e:
             return self._json(503, {'error': {'message': 'coda piena: %s' % e}})
         try:
-            self._inoltra(corpo)
+            self._inoltra(corpo, misura.Osservatore(dati, self.path.split('?')[0]))
         finally:
             self.coda.esci(biglietto)
 
