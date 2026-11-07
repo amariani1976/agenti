@@ -198,45 +198,31 @@ FINE_CICLO
   Cosa fare: nuove opzioni `--file a,b`, `--verifica "comando"`, `--tentativi N` (1-5, predefinito 3), `--json`. Con `--verifica` il comando usa `ciclo.esegui` con `Esecuzione` (import da `../ciclo`), stampa l'esito (in JSON con `--json`, altrimenti esito, tentativi e file) ed esce con 0 se `fatto`, 1 se `non-fatto`, 2 per errori d'ingresso; senza `--verifica` resta tutto com'è oggi. Aggiungi le opzioni all'aiuto.
   Verifica: `timeout 120 python3 -m unittest tests/test_agente.py && python3 bin/agente --aiuto 2>&1 | grep -q -- "--verifica" || python3 bin/agente 2>&1 | grep -q -- "--verifica"`
 
-- [!] 4. Correzione dei semafori rossi (giro 1)
-  File: `tests/test_cliente.py`, `tests/test_kb.py`, `tests/test_servizio.py`
-  Cosa fare: a fine piano le regole di verifica del progetto (semafori) sono ROSSE. Capisci la causa di ogni
-  controllo segnato con ❌ qui sotto e correggila nel codice, senza spegnere controlli, saltare test o cambiare
-  `controlli.toml`. I ⚠️ sono avvisi: correggili solo se riguardano i file del piano.
-  ## Semafori: 🔴 ROSSO
-  
-  - Base `1b7d0fc49af6`; controlli del progetto: `controlli.toml`.
-  
-  - ✅ **verifica generale del piano** (9.9 s)
-    - Ran 17 tests in 7.219s
-    - OK
-    - Ran 3 tests in 2.515s
-  - ✅ **test finali della fase** (0.3 s)
-    - Ran 12 tests in 0.240s
-    - OK
-  - ✅ **segreti**
-  - ✅ **conflitti**
-  - ✅ **file-spuri**
-  - ✅ **test-saltati**
-  - ✅ **test-cancellati**
-  - ✅ **todo**
-  - ✅ **file-grandi**
-  - ⚠️ **file-monolitici** — File di codice oltre 500 righe modificati: dividere in moduli piccoli
-    - web/web.py (545 righe)
-  - ✅ **codice-ripetuto**
-  - ⚠️ **segreti-nei-test** — Valori simili a segreti nei file di test (controllare che siano finti)
-    - tests/test_cliente.py:15: …TOKEN = 'tok…
-    - tests/test_cliente.py:62: …TOKEN='sbagl…
-    - tests/test_kb.py:53: …-----BEGIN O…
-    - tests/test_servizio.py:19: …TOKEN = 'tok…
-    - tests/test_servizio.py:71: …token='sbagl…
-  - ❌ **Test** (20.9 s)
-    - uscita 1
-    - ERROR: test_flusso_intatto_e_registro (test_misura.Misura.test_flusso_intatto_e_registro)
-    - ERROR: test_motore_spento (test_misura.Misura.test_motore_spento)
-    - ERROR: test_orchestratore (unittest.loader._FailedTest.test_orchestratore)
-    - ERROR: test_ruoli (unittest.loader._FailedTest.test_ruoli)
-    - Ran 95 tests in 20.822s
-    - FAILED (errors=4)
-  - ✅ **Solo libreria standard di Python**
-  Verifica: `/opt/ai-vm/bin/semafori --base 1b7d0fc49af6; test $? -lt 2`
+- [ ] 4.1 Semafori, parte 1: il registro delle misure si legge al momento della scrittura
+  File: `coda/misura.py`
+  Nota: `test_misura` fallisce solo con `discover`: `test_coda` importa `proxy` (e quindi `misura`) prima che `test_misura` imposti `CODA_MISURE`, così `REGISTRO` resta quello predefinito. Il test non si tocca: si corregge `misura.py`. Non toccare altri file.
+  Cosa fare: esegui ESATTAMENTE questo comando (cambia una riga sola):
+  ```sh
+  sed -i "s/open(REGISTRO, 'a', encoding='utf-8')/open(os.environ.get('CODA_MISURE', REGISTRO), 'a', encoding='utf-8')/" coda/misura.py
+  ```
+  Verifica: `grep -q "open(os.environ.get('CODA_MISURE', REGISTRO), 'a'" coda/misura.py && cd tests && timeout 120 python3 -m unittest test_coda test_misura`
+
+- [ ] 4.2 Semafori, parte 2: i test della fase in coda escono da `tests/`
+  File: `tests/test_ruoli.py`, `tests/test_orchestratore.py`, `piani/test_ruoli.py`, `piani/test_orchestratore.py`, `piani/ruoli.md`
+  Nota: `test_ruoli` e `test_orchestratore` sono i test della fase successiva (`piani/ruoli.md`): falliscono finché quella fase non scrive `ciclo/ruoli.py` e `ciclo/orchestratore.py`, che NON vanno scritti ora. Si spostano in `piani/` (il loro percorso `../ciclo` resta giusto) e la fase in coda li rimette in `tests/` col suo primo passo. Non scrivere codice in `ciclo/`.
+  Cosa fare: esegui ESATTAMENTE questo comando (copialo così com'è):
+  ```sh
+  mv tests/test_ruoli.py tests/test_orchestratore.py piani/ && python3 - <<'FINE_PY'
+p = 'piani/ruoli.md'
+t = open(p, encoding='utf-8').read()
+vecchio = '- [ ] 1. I ruoli\n'
+nuovo = ('- [ ] 0. I test della fase al loro posto\n'
+         '  File: `piani/test_ruoli.py`, `piani/test_orchestratore.py`, `tests/test_ruoli.py`, `tests/test_orchestratore.py`\n'
+         '  Cosa fare: esegui ESATTAMENTE questo comando: `mv piani/test_ruoli.py piani/test_orchestratore.py tests/`\n'
+         '  Verifica: `test -f tests/test_ruoli.py && test -f tests/test_orchestratore.py && test ! -e piani/test_ruoli.py && test ! -e piani/test_orchestratore.py`\n'
+         + vecchio)
+assert t.count(vecchio) == 1 and '0. I test della fase' not in t
+open(p, 'w', encoding='utf-8').write(t.replace(vecchio, nuovo))
+FINE_PY
+  ```
+  Verifica: `test ! -e tests/test_ruoli.py && test ! -e tests/test_orchestratore.py && test -f piani/test_ruoli.py && test -f piani/test_orchestratore.py && grep -q "mv piani/test_ruoli.py piani/test_orchestratore.py tests/" piani/ruoli.md && { /opt/ai-vm/bin/semafori --base 1b7d0fc49af6; test $? -lt 2; }`
