@@ -68,7 +68,6 @@ class Esecuzione(object):
         try:
             r = subprocess.run(
                 ['kb', 'cerca', query],
-                stdin=subprocess.PIPE,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
                 universal_newlines=True,
@@ -77,6 +76,8 @@ class Esecuzione(object):
             if r.returncode != 0:
                 return []
             testo = r.stdout if r.stdout else ''
-            return [testo[:1500]]
-        except (FileNotFoundError, OSError, subprocess.TimeoutExpired):
+            return [] if not testo else [testo[:1500]]
+        except (FileNotFoundError, OSError):
             return []
+        except subprocess.TimeoutExpired:
+            return (124, 'tempo massimo superato')
