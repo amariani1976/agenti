@@ -103,7 +103,7 @@ def _stampa_json(dato):
 def _esegui_con_verifica(file_arg, verifica_arg, tentativi_arg, nome, compito, cartella, radice, pi):
     """Esegue l'agente con verifica usando ciclo.esegui."""
     # Calcola la cartella dei moduli usando realpath(__file__) in modo assoluto
-    agente_path = os.path.abspath(os.path.realpath(__file__))
+    agente_path = os.path.realpath(__file__)
     # bin/c -> bin/.. = root, then root/ciclo
     moduli_path = os.path.join(os.path.dirname(os.path.dirname(agente_path)), 'ciclo')
     
