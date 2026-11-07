@@ -15,7 +15,7 @@ La prova vera ha mostrato che `_esegui_con_verifica` in `bin/agente` non funzion
   File: `bin/agente`
   Cosa fare: riscrivi solo `_esegui_con_verifica` e il calcolo della cartella dei moduli. La cartella dei moduli si ricava da `os.path.realpath(__file__)`, in tutto il file. In `_esegui_con_verifica`: niente chiamata diretta a `pi` e niente filtro dei caratteri della verifica (la verifica gira come `esecutore` dentro `esegui-passo`); crea `Esecuzione` come fa `_orchestratore` (stesse variabili `AGENTE_ESEGUI` e `AGENTE_PROGETTI`, modello `esecutore-pensiero`); se `e.progetto(cartella)` solleva `ValueError`, errore con uscita 2; i file devono essere relativi, senza `..`, dentro la cartella di lavoro, altrimenti uscita 2; tentativi da 1 a 5, altrimenti uscita 2; poi `ciclo.esegui(compito, cartella, verifica, file, tentativi, lancia=e.lancia, verifica_fn=e.verifica, lezioni=e.lezioni)`. Lascia com'è il resto del file, compreso il percorso senza `--verifica` e l'orchestratore. Non scrivere test.
   Verifica: `cd piani && timeout 200 python3 -m unittest test_agente_catena && cd .. && timeout 200 python3 -m unittest tests/test_agente.py`
-- [ ] 2. Il test al suo posto
+- [x] 2. Il test al suo posto
   File: `tests/test_agente_catena.py`
   Esegui:
   ```bash
