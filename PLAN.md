@@ -19,7 +19,7 @@ Il banco ha mostrato che l'agente si ferma appena passa la verifica del passo: i
   File: `bin/agente`
   Cosa fare: nuove opzioni `--verifica-globale "comando"` e `--senza-revisione`. Col ciclo, passa `verifica_globale` e, se non c'è `--senza-revisione`, `revisione=lambda compito, cartella: ruoli.revisore({'agente': 'revisore', 'compito': compito}, cartella, e.lancia)` con lo stesso `Esecuzione` del programmatore. Nient'altro cambia.
   Verifica: `timeout 200 python3 -m unittest tests/test_agente_catena.py tests/test_agente.py && grep -q -- "--verifica-globale" bin/agente`
-- [ ] 3. Il test al suo posto
+- [x] 3. Il test al suo posto
   File: `tests/test_ciclo_qualita.py`
   Esegui:
   ```bash
