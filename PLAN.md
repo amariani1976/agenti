@@ -6,6 +6,7 @@ verifica_globale: timeout 300 python3 -m unittest tests/test_agente.py tests/tes
 accettazione: cd piani && timeout 200 python3 -m unittest test_ciclo_qualita
 correzioni_semafori: 1
 aiuti: 1
+collaudi: 1
 ---
 # Piano: il ciclo consegna solo lavoro fatto bene
 
