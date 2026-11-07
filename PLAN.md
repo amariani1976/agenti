@@ -5,6 +5,7 @@ modello: esecutore
 verifica_globale: timeout 300 python3 -m unittest tests/test_agente.py tests/test_agente_catena.py tests/test_orchestratore.py tests/test_ciclo_qualita.py
 accettazione: timeout 60 python3 -m unittest tests/test_orchestratore_revisione_compito.py tests/test_orchestratore_revisione.py
 collaudi: 1
+aiuti: 1
 ---
 # Piano: il programmatore dell'orchestratore usa il revisore
 
@@ -33,7 +34,7 @@ mv piani/test_orchestratore_revisione.py tests/
 sed -i "s/'compito': compito\['compito'\]}/'compito': compito}/" bin/agente
   ```
   Verifica: `cd piani && timeout 60 python3 -m unittest test_orchestratore_revisione_compito && cd .. && timeout 200 python3 -m unittest tests/test_orchestratore_revisione.py tests/test_agente_catena.py tests/test_orchestratore.py`
-- [ ] 4. I test al loro posto
+- [!] 4. I test al loro posto
   File: `tests/test_orchestratore_revisione_compito.py`, `piani/test_orchestratore_revisione.py`
   Perché: il passo 2 ha copiato il test invece di spostarlo; in `piani/` ne resta un doppione.
   Esegui:
