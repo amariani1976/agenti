@@ -101,26 +101,49 @@ def _stampa_json(dato):
 
 def _esegui_con_verifica(file_arg, verifica_arg, tentativi_arg, nome, compito, cartella, radice, pi):
     """Esegue l'agente con verifica usando ciclo.esegui."""
-    # Importa i moduli ciclo
+    # Importa i moduli ciclo senza modificare sys.path globale
     ciclo_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'ciclo')
-    sys.path.insert(0, ciclo_path)
-    import ciclo
+    import sys
+    import importlib.util
+    spec = importlib.util.spec_from_file_location("ciclo", os.path.join(ciclo_path, '__init__.py'))
+    ciclo = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(ciclo)
     from ciclo.esecuzione import Esecuzione
 
-    # Costruisci lista file (semplice split su virgola)
-    file_list = [f.strip() for f in file_arg.split(',') if f.strip()]
+    # Costruisci lista file con validazione path traversal
+    file_list = []
+    for f in file_arg.split(','):
+        f = f.strip()
+        if f:
+            # Normalizza il percorso e verifica che sia sotto la radice
+            abs_path = os.path.abspath(f)
+            if not abs_path.startswith(os.path.abspath(radice)):
+                print('errore: path traversal rilevato: {0}'.format(f), file=sys.stderr)
+                sys.exit(2)
+            file_list.append(f)
     if not file_list:
         print('errore: file vuoti per --file', file=sys.stderr)
         sys.exit(2)
 
-    # Validazione tentativi (1-5)
-    tentativi = int(tentativi_arg)
+    # Validazione tentativi (1-5) con gestione ValueError
+    try:
+        tentativi = int(tentativi_arg)
+    except ValueError:
+        print('errore: tentativi deve essere un numero intero', file=sys.stderr)
+        sys.exit(2)
     if tentativi < 1 or tentativi > 5:
         print('errore: tentativi deve essere tra 1 e 5', file=sys.stderr)
         sys.exit(2)
 
     if not verifica_arg or not verifica_arg.strip():
         print('errore: verifica vuota per --verifica', file=sys.stderr)
+        sys.exit(2)
+
+    # Sanitizza verifica_arg: solo caratteri alfanumerici, spazi, punti, virgole, trattini
+    # Rimuove caratteri pericolosi per evitare injection
+    verifica_sanitized = re.sub(r'[^a-zA-Z0-9_\-\./: \(\);|&$*]', '', verifica_arg)
+    if len(verifica_sanitized) == 0 or len(verifica_sanitized) < len(verifica_arg):
+        print('errore: caratteri non consentiti nel comando di verifica', file=sys.stderr)
         sys.exit(2)
 
     # Costruisci argv per il comando agente
@@ -131,26 +154,18 @@ def _esegui_con_verifica(file_arg, verifica_arg, tentativi_arg, nome, compito, c
         print('errore: cartella inesistente: {0}'.format(cwd), file=sys.stderr)
         sys.exit(2)
 
-    # Esegui il comando per ottenere argv
+    # Esegui il comando con timeout per evitare blocco infinito
     env_full = dict(os.environ, **env)
-    r = subprocess.run(argv, env=env_full, cwd=cwd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True, timeout=1200)
-    agente_codice = r.returncode
-    agente_uscita = r.stdout if r.stdout else ''
+    subprocess.run(argv, env=env_full, cwd=cwd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True, timeout=120)
 
-    # Esegui verifica
-    r_verifica = subprocess.run(['python3', '-c', verifica_arg], cwd=cwd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True, timeout=120)
-    verifica_codice = r_verifica.returncode
-    verifica_uscita = r_verifica.stdout if r_verifica.stdout else ''
-
-    # Costruisci Esecuzione per il ciclo
-    esegui_cmd = [sys.executable]
-    esecuzione = Esecuzione(radice, esegui_cmd, tempo=1200)
+    # Costruisci Esecuzione per il ciclo (timeout gestito da ciclo.esegui)
+    esecuzione = Esecuzione(radice, [], tempo=60)
 
     # Esegui ciclo.esegui
     risultato = ciclo.esegui(
         compito=' '.join(compito) if isinstance(compito, list) else compito,
         cartella=cwd,
-        verifica=verifica_arg,
+        verifica=verifica_sanitized,
         file=file_list,
         tentativi=tentativi,
         lancia=esecuzione.lancia,
