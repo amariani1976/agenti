@@ -1,5 +1,5 @@
 ---
-stato: in-esecuzione
+stato: completato
 ramo: ai/agente-ciclo
 modello: esecutore
 verifica_globale: timeout 300 sh -c 'python3 -m unittest tests/test_agente.py tests/test_coda.py && python3 -m unittest tests/test_misura.py'
@@ -8,6 +8,7 @@ spezzati: 2
 aiuti: 4
 correzioni_semafori: 1
 collaudi: 1
+collaudo: superato
 ---
 # Piano: un agente unico che usa il modello locale nel modo migliore
 
