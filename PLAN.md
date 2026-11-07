@@ -5,7 +5,7 @@ modello: esecutore
 verifica_globale: timeout 200 python3 -m unittest tests/test_agente.py tests/test_coda.py tests/test_misura.py tests/test_ciclo.py tests/test_esecuzione.py
 accettazione: cd piani && timeout 200 python3 -m unittest test_ruoli test_orchestratore
 collaudi: 1
-spezzati: 1
+spezzati: 2
 aiuti: 1
 ---
 # Piano: ruoli e orchestratore
@@ -42,30 +42,126 @@ Il collaudo ha trovato difetti che i test della fase non coprivano: `agente orch
   File: `ciclo/risposta.py`, `ciclo/ruoli.py`, `ciclo/orchestratore.py`
   Cosa fare: nuovo `ciclo/risposta.py` con `primo_json(testo)`: `None` se il testo e' vuoto o `None`; se c'e' un blocco ```json … ``` usa il suo contenuto; poi prova `json.JSONDecoder().raw_decode(testo, i)` da ogni posizione `i` in cui c'e' `{`, in ordine, e restituisce il primo risultato che e' un `dict`; altrimenti `None`. In `ruoli.py` e `orchestratore.py` togliere `_json_da_risposta` e usare `from risposta import primo_json` (i moduli si importano con `ciclo/` in `sys.path`, come gia' fa `from ciclo import …`).
   Verifica: `cd piani && timeout 120 python3 -m unittest test_risposta test_ruoli test_orchestratore`
-- [!] 6.1 Implementare `_elenco` (spezzato)
+- [ ] 6.1 Funzioni di appoggio per la sola lettura (`_elenco`, `_istantanea`, `_ripristina`)
   File: `ciclo/ruoli.py`
-  Cosa fare: sostituire `_prima_stato` con `_elenco(cartella)` che restituisce nomi di `git ls-files` più `git ls-files --others --exclude-standard` (percorsi relativi anche in sottocartelle)
-  Verifica: `cd piani && timeout 120 python3 -m unittest test_ruoli_lettura.test_ruoli_lettura.SolaLettura.test_sottocartella_ripristinata`
+  Cosa fare: eseguire dalla radice del progetto lo script qui sotto, così com'è, senza riscriverlo a mano. Toglie `_annulla_cambi` e `_prima_stato` e mette al loro posto `_elenco`, `_dentro`, `_istantanea`, `_ripristina` (`revisore` e `ricercatore` si sistemano nel passo 6.2: fino ad allora `tests/test_ruoli.py` fallisce, è previsto).
+  Esegui:
+  ```bash
+python3 - <<'EOF'
+p = 'ciclo/ruoli.py'
+t = open(p, encoding='utf-8').read()
+i = t.index('def _annulla_cambi(')
+j = t.index('def programmatore(')
+nuovo = '''def _elenco(cartella):
+    """Nomi relativi dei file tracciati e non tracciati (non ignorati), anche in sottocartelle."""
+    nomi = set()
+    for argomenti in (('ls-files', '-z'), ('ls-files', '-z', '--others', '--exclude-standard')):
+        codice, uscita = _git(cartella, *argomenti)
+        if codice == 0:
+            nomi.update(n for n in uscita.split('\\0') if n)
+    return sorted(nomi)
 
-- [ ] 6.2 Implementare `_istantanea` (spezzato)
-  File: `ciclo/ruoli.py`
-  Cosa fare: aggiungere `_istantanea(cartella)` che restituisce dict nome → bytes del contenuto per ogni nome di `_elenco` che è un file
-  Verifica: `cd piani && timeout 120 python3 -m unittest test_ruoli_lettura`
 
-- [ ] 6.3 Implementare `_ripristina` con path validation (spezzato)
-  File: `ciclo/ruoli.py`
-  Cosa fare: aggiungere `_ripristina(cartella, prima)` che per ogni nome in `sorted(set(prima) | set(_elenco(cartella)))`: se era in `prima` e ora manca o è diverso riscrive i bytes di prima (creando cartelle); se non era in `prima` ed esiste lo cancella; restituisce nomi toccati; validare con `os.path.realpath` che i percorsi stanno dentro `realpath(cartella)`
-  Verifica: `cd piani && timeout 120 python3 -m unittest test_ruoli_lettura.test_ruoli_lettura.SolaLettura.test_sottocartella_ripristinata`
+def _dentro(cartella, nome):
+    """Percorso assoluto del file se sta dentro la cartella, altrimenti None."""
+    base = os.path.realpath(cartella)
+    percorso = os.path.realpath(os.path.join(base, nome))
+    if percorso == base or not percorso.startswith(base + os.sep):
+        return None
+    return percorso
 
-- [ ] 6.4 Aggiornare `revisore` per sola lettura (spezzato)
-  File: `ciclo/ruoli.py`
-  Cosa fare: rimuovere `_annulla_cambi` e `_prima_stato`; usare `_istantanea` e `_ripristina`; ignorare `compito['file']` (niente perimetro e niente «File che puoi modificare» nel prompt); diff usa `_sporchi(cartella)`; chiamare `_ripristina` sempre dopo `lancia`, anche se eccezione
-  Verifica: `cd piani && timeout 120 python3 -m unittest test_ruoli_lettura.test_ruoli_lettura.SolaLettura.test_sottocartella_ripristinata`
 
-- [ ] 6.5 Aggiornare `ricercatore` per una sola chiamata (spezzato)
+def _istantanea(cartella):
+    """Contenuto in byte di ogni file di _elenco: dict nome -> bytes."""
+    prima = {}
+    for nome in _elenco(cartella):
+        contenuto = _leggi(cartella, nome)
+        if contenuto is not None:
+            prima[nome] = contenuto
+    return prima
+
+
+def _ripristina(cartella, prima):
+    """Riporta la cartella all'istantanea; restituisce in ordine i nomi toccati."""
+    toccati = []
+    for nome in sorted(set(prima) | set(_elenco(cartella))):
+        percorso = _dentro(cartella, nome)
+        if percorso is None:
+            continue
+        ora = _leggi(cartella, nome)
+        if nome in prima:
+            if ora == prima[nome]:
+                continue
+            sopra = os.path.dirname(percorso)
+            if not os.path.isdir(sopra):
+                os.makedirs(sopra)
+            with open(percorso, 'wb') as f:
+                f.write(prima[nome])
+            toccati.append(nome)
+        elif ora is not None:
+            os.remove(percorso)
+            toccati.append(nome)
+    return toccati
+
+
+'''
+open(p, 'w', encoding='utf-8').write(t[:i] + nuovo + t[j:])
+EOF
+  ```
+  Verifica: `timeout 60 python3 -c "import sys; sys.path.insert(0, 'ciclo'); import ruoli; assert not hasattr(ruoli, '_annulla_cambi') and not hasattr(ruoli, '_prima_stato'); import os, tempfile, subprocess; d = tempfile.mkdtemp(); g = lambda *a: subprocess.check_call(['git', '-C', d] + list(a), stdout=subprocess.DEVNULL); g('init', '-q'); os.makedirs(os.path.join(d, 'sub')); open(os.path.join(d, 'sub/b.py'), 'w').write('y'); g('add', '.'); g('-c', 'user.email=p@e.invalid', '-c', 'user.name=p', 'commit', '-qm', 'i'); open(os.path.join(d, 'sub/n.py'), 'w').write('n'); assert ruoli._elenco(d) == ['sub/b.py', 'sub/n.py']; p = ruoli._istantanea(d); open(os.path.join(d, 'sub/b.py'), 'w').write('rotto'); open(os.path.join(d, 'sub/z.py'), 'w').write('z'); assert ruoli._ripristina(d, p) == ['sub/b.py', 'sub/z.py']; assert open(os.path.join(d, 'sub/b.py')).read() == 'y' and not os.path.exists(os.path.join(d, 'sub/z.py')); print('ok')"`
+- [ ] 6.2 Revisore e ricercatore usano `_istantanea` e `_ripristina`
   File: `ciclo/ruoli.py`
-  Cosa fare: il ricercatore fa UNA sola chiamata a `lancia` con prompt: il compito, «Cerca prima nella KB, poi usa la skill web, e salva la sintesi nella KB con kb_salva.»; codice 0 → `{'esito': 'fatto', 'testo': uscita, 'scritture_annullate': [...]}`, altrimenti `{'esito': 'non-fatto', 'motivo': ...}`; usa `_ripristina` per annullare
-  Verifica: `cd piani && timeout 120 python3 -m unittest test_ruoli_lettura test_ruoli`
+  Cosa fare: eseguire dalla radice del progetto lo script qui sotto, così com'è. Riscrive tutto da `def revisore(` alla fine del file: il revisore ignora `compito['file']` (niente «File che puoi modificare»), mostra il diff di `_sporchi`, ripristina sempre dopo `lancia` (anche con eccezione); il ricercatore fa UNA sola chiamata (KB, skill web, salva con kb_salva).
+  Esegui:
+  ```bash
+python3 - <<'EOF'
+p = 'ciclo/ruoli.py'
+t = open(p, encoding='utf-8').read()
+i = t.index('def revisore(')
+nuovo = '''def revisore(compito, cartella, lancia):
+    """Revisore: chiede un giudizio in JSON e annulla ogni scrittura fatta durante la chiamata."""
+    prima = _istantanea(cartella)
+    prompt = 'Compito: ' + compito['compito']
+    diff = _diff(cartella, sorted(_sporchi(cartella)))
+    if diff:
+        prompt += '\\n\\nDiff della cartella:\\n' + diff
+    prompt += '\\n\\nRispondi SOLO con un JSON: {"ok": bool, "difetti": [stringhe]}'
+    try:
+        codice, uscita = lancia(prompt, cartella)
+    except Exception as e:
+        _ripristina(cartella, prima)
+        return {'esito': 'non-fatto', 'motivo': 'eccezione durante la chiamata: ' + str(e)}
+    scritture_annullate = _ripristina(cartella, prima)
+    dati = primo_json(uscita)
+    if dati is None:
+        return {'esito': 'non-fatto', 'motivo': 'risposta illeggibile: non è un JSON valido'}
+    return {
+        'esito': 'fatto',
+        'ok': dati.get('ok', False),
+        'difetti': dati.get('difetti', []),
+        'scritture_annullate': scritture_annullate
+    }
+
+
+def ricercatore(compito, cartella, lancia):
+    """Ricercatore: una sola chiamata che cerca nella KB e sul web e salva la sintesi; non scrive file."""
+    prima = _istantanea(cartella)
+    prompt = ('Compito: ' + compito['compito'] +
+              '\\n\\nCerca prima nella KB, poi usa la skill web, e salva la sintesi nella KB con kb_salva.')
+    try:
+        codice, uscita = lancia(prompt, cartella)
+    except Exception as e:
+        _ripristina(cartella, prima)
+        return {'esito': 'non-fatto', 'motivo': 'eccezione durante la ricerca: ' + str(e)}
+    scritture_annullate = _ripristina(cartella, prima)
+    if codice != 0:
+        return {'esito': 'non-fatto', 'motivo': 'codice di ritorno non zero: ' + str(codice)}
+    return {'esito': 'fatto', 'testo': uscita, 'scritture_annullate': scritture_annullate}
+'''
+open(p, 'w', encoding='utf-8').write(t[:i] + nuovo)
+EOF
+  ```
+  Verifica: `cd piani && timeout 120 python3 -m unittest test_ruoli_lettura test_ruoli test_orchestratore && cd .. && ! grep -q "_annulla_cambi\|_prima_stato" ciclo/ruoli.py`
 
 - [ ] 7. Orchestratore: casi mancanti
   File: `ciclo/orchestratore.py`
