@@ -1,0 +1,15 @@
+# Regole di verifica del progetto agenti (semafori): formato in /opt/ai-vm/templates/controlli.toml.
+
+[[controllo]]
+nome = "Test"
+comando = "python3 -m unittest discover -s tests -p 'test_*.py'"
+quando = "fine"
+timeout = 600
+
+[[controllo]]
+nome = "Solo libreria standard di Python"
+vieta = '^\s*(import|from)\s+(requests|yaml|httpx|aiohttp|numpy|pydantic|fastapi|flask)\b'
+file = ["**/*.py", "bin/*"]
+
+[base]
+escludi = ["docs/**", "piani/**"]

@@ -1,0 +1,419 @@
+#!/usr/bin/env python3
+"""Esecutore del comando agente: avvia pi con un profilo specifico."""
+import argparse
+import importlib.util
+import json
+import os
+import re
+import subprocess
+import sys
+
+# Predefiniti
+DEFAULT_PI = os.path.expanduser('~/.local/bin/pi')
+# La radice è la cartella sopra bin/
+DEFAULT_RADICE = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
+
+# Regex per nome valido: inizia con lettera minuscola, poi 0-40 caratteri (lettera minuscola, cifra, trattino)
+NOME_VALIDO = re.compile(r'^[a-z][a-z0-9-]{0,40}$')
+
+
+def _profilo_dir(radice, nome):
+    """Restituisce il percorso della cartella del profilo."""
+    return os.path.join(radice, 'profili', nome)
+
+
+def _strumenti(radice, nome):
+    """Legge gli strumenti dal file strumenti del profilo."""
+    path = os.path.join(_profilo_dir(radice, nome), 'strumenti')
+    if not os.path.exists(path):
+        return []
+    with open(path, 'r') as f:
+        return [s.strip() for s in f.read().strip().split(',') if s.strip()]
+
+
+def _skills(radice, nome):
+    """Restituisce la lista delle skill (cartelle con SKILL.md) in ordine alfabetico."""
+    skills_dir = os.path.join(_profilo_dir(radice, nome), 'skills')
+    if not os.path.isdir(skills_dir):
+        return []
+    result = []
+    for entry in os.listdir(skills_dir):
+        path = os.path.join(skills_dir, entry)
+        if os.path.isdir(path) and os.path.exists(os.path.join(path, 'SKILL.md')):
+            result.append((entry, path))
+    # Ordina per nome (prima parte del percorso)
+    result.sort(key=lambda x: x[0])
+    return [p for _, p in result]
+
+
+def comando(nome, compito, cartella, radice, pi=DEFAULT_PI):
+    """
+    Costruisce il comando per eseguire pi con il profilo specificato.
+
+    Args:
+        nome: nome del profilo (deve essere valido)
+        compito: il compito da eseguire
+        cartella: cartella di lavoro (cwd)
+        radice: radice del progetto (dove si trovano i profili)
+        pi: percorso al programma pi (default: DEFAULT_PI)
+
+    Returns:
+        tuple (argv, env, cwd) dove:
+        - argv: lista di argomenti per subprocess.run
+        - env: dizionario delle variabili d'ambiente
+        - cwd: cartella di lavoro
+
+    Raises:
+        ValueError: se il nome non è valido o il profilo non esiste
+    """
+    # Validazione nome
+    if not NOME_VALIDO.match(nome):
+        raise ValueError(f"nome non valido: '{nome}' (deve corrispondere a {NOME_VALIDO.pattern})")
+
+    profilo = _profilo_dir(radice, nome)
+    if not os.path.isdir(profilo):
+        raise ValueError(f"profilo non esistente: '{nome}'")
+
+    # Costruisci argv
+    argv = [pi, '-p', '--no-session', '--no-skills']
+
+    # Aggiungi skill in ordine alfabetico
+    for skill_path in _skills(radice, nome):
+        argv.extend(['--skill', skill_path])
+
+    # Aggiungi strumenti
+    tools = _strumenti(radice, nome)
+    if tools:
+        argv.extend(['--tools', ','.join(tools)])
+
+    # Aggiungi il compito
+    argv.append(' '.join(compito) if isinstance(compito, list) else compito)
+
+    # Ambiente con solo PI_CODING_AGENT_DIR
+    env = {'PI_CODING_AGENT_DIR': profilo}
+
+    return argv, env, cartella
+
+
+def _stampa_json(dato):
+    """Stampa un dizionario come JSON."""
+    print(json.dumps(dato, indent=2, sort_keys=True))
+
+
+def _esegui_con_verifica(file_arg, verifica_arg, tentativi_arg, nome, compito, cartella, radice, pi,
+                         verifica_globale=None, senza_revisione=False):
+    """Esegue l'agente con verifica usando ciclo.esegui."""
+    # Calcola la cartella dei moduli usando realpath(__file__) in modo assoluto
+    agente_path = os.path.realpath(__file__)
+    # bin/c -> bin/.. = root, then root/ciclo
+    moduli_path = os.path.join(os.path.dirname(os.path.dirname(agente_path)), 'ciclo')
+    
+    # Importa i moduli ciclo senza modificare sys.path globale
+    spec = importlib.util.spec_from_file_location("ciclo", os.path.join(moduli_path, 'ciclo.py'))
+    ciclo = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(ciclo)
+    exec_spec = importlib.util.spec_from_file_location("ciclo.esecuzione", os.path.join(moduli_path, 'esecuzione.py'))
+    exec_module = importlib.util.module_from_spec(exec_spec)
+    exec_spec.loader.exec_module(exec_module)
+    ciclo.Esecuzione = exec_module.Esecuzione
+
+    # Costruisci lista file con validazione robusta
+    file_list = []
+    for f in file_arg.split(','):
+        f = f.strip()
+        if f:
+            # I file devono essere relativi, senza .., senza path assoluti
+            # Usa os.path.isabs() per path assoluti (es. /foo, //absolute, ~)
+            # Usa os.path.normpath() per normalizzare e verificare che non contenga ..
+            if os.path.isabs(f) or '..' in os.path.normpath(f):
+                print('errore: file non valido: {0}'.format(f), file=sys.stderr)
+                sys.exit(2)
+            file_list.append(f)
+    if not file_list:
+        print('errore: file vuoti per --file', file=sys.stderr)
+        sys.exit(2)
+
+    # Validazione tentativi (1-5) con gestione ValueError
+    try:
+        tentativi = int(tentativi_arg)
+    except ValueError:
+        print('errore: tentativi deve essere un numero intero', file=sys.stderr)
+        sys.exit(2)
+    if tentativi < 1 or tentativi > 5:
+        print('errore: tentativi deve essere tra 1 e 5', file=sys.stderr)
+        sys.exit(2)
+
+    # Validazione preliminare di cartella prima di progetto()
+    if not cartella:
+        print('errore: cartella non può essere vuota o None', file=sys.stderr)
+        sys.exit(2)
+
+    # Determina esegui da AGENTE_ESEGUI o default
+    esegui_fn = os.environ.get('AGENTE_ESEGUI')
+    if esegui_fn:
+        esegui = [esegui_fn]
+    else:
+        esegui = ['sudo', '-n', '-u', 'esecutore', '/opt/ai-vm/libexec/esegui-passo']
+
+    # Crea Esecuzione (stesse variabili AGENTE_ESEGUI e AGENTE_PROGETTI, modello esegutore-pensiero)
+    # Default più robusto: usa home se /srv/progetti non esiste
+    progetti_dir = os.environ.get('AGENTE_PROGETTI')
+    if not progetti_dir:
+        # Default dinamico: prova /srv/progetti, altrimenti ~/progetti
+        if os.path.isdir('/srv/progetti'):
+            progetti_dir = '/srv/progetti'
+        else:
+            progetti_dir = os.path.expanduser('~/progetti')
+    esecuzione = ciclo.Esecuzione(
+        radice=progetti_dir,
+        esegui=esegui,
+        modello='esecutore-pensiero'
+    )
+
+    # Valida cartella come progetto con gestione ValueError
+    try:
+        esecuzione.progetto(cartella)
+    except ValueError as ex:
+        print('errore: ' + str(ex), file=sys.stderr)
+        sys.exit(2)
+
+    # Revisore con lo stesso Esecuzione del programmatore, salvo --senza-revisione
+    revisione_fn = None
+    if not senza_revisione:
+        sys.path.insert(0, moduli_path)
+        import ruoli
+        revisione_fn = lambda c, d: ruoli.revisore({'agente': 'revisore', 'compito': c}, d, esecuzione.lancia)
+
+    # Esegui ciclo.esegui con tentativi da 1 a 5
+    # Gestisci verifica_arg=None: passa None ma ciclo.esegui lo gestisce
+    risultato = ciclo.esegui(
+        compito=' '.join(compito) if isinstance(compito, list) else compito,
+        cartella=cartella,
+        verifica=verifica_arg if verifica_arg else None,
+        file=file_list,
+        tentativi=tentativi,
+        lancia=esecuzione.lancia,
+        verifica_fn=esecuzione.verifica,
+        lezioni=esecuzione.lezioni,
+        verifica_globale=verifica_globale,
+        revisione=revisione_fn
+    )
+
+    # Restituisci il risultato senza uscire
+    return risultato
+
+
+def _orchestratore(richiesta, cartella, radice):
+    """Esegue l'orchestratore con la richiesta.
+    
+    - chiedi: chiamata al modello attraverso Esecuzione.lancia con prompt «rispondi solo con il JSON»
+    - agenti: programmatore, revisore, ricercatore di ruoli collegati a Esecuzione
+    - avvisa: scrive sulla FIFO orchestratore con avviso.scrivi e stampa l'avviso
+    """
+    # Inserisce il ciclo in sys.path e importa i moduli
+    ciclo_path = os.path.join(os.path.dirname(os.path.dirname(os.path.realpath(__file__))), 'ciclo')
+    sys.path.insert(0, ciclo_path)
+    import ruoli
+    import orchestratore
+    import esecuzione
+    
+    # Determina esegui: usa AGENTE_ESEGUI se presente, altrimenti il default
+    esegui_fn = os.environ.get('AGENTE_ESEGUI')
+    if esegui_fn:
+        esegui = [esegui_fn]
+    else:
+        esegui = ['sudo', '-n', '-u', 'esecutore', '/opt/ai-vm/libexec/esegui-passo']
+    
+    # Crea Esecuzione (stessa logica dinamica per AGENTE_PROGETTI)
+    progetti_dir = os.environ.get('AGENTE_PROGETTI')
+    if not progetti_dir:
+        # Default dinamico: prova /srv/progetti, altrimenti ~/progetti
+        if os.path.isdir('/srv/progetti'):
+            progetti_dir = '/srv/progetti'
+        else:
+            progetti_dir = os.path.expanduser('~/progetti')
+    
+    e = esecuzione.Esecuzione(
+        radice=progetti_dir,
+        esegui=esegui,
+        modello='esecutore-pensiero'
+    )
+    
+    # Valida cartella come progetto
+    try:
+        e.progetto(cartella)
+    except ValueError as ex:
+        print('errore: ' + str(ex), file=sys.stderr)
+        sys.exit(2)
+    
+    # Crea il dict degli agenti con lambda
+    agenti = {
+        'programmatore': lambda c, d: ruoli.programmatore(c, d, lancia=e.lancia, verifica_fn=e.verifica, lezioni=e.lezioni),
+        'revisore': lambda c, d: ruoli.revisore(c, d, e.lancia),
+        'ricercatore': lambda c, d: ruoli.ricercatore(c, d, e.lancia)
+    }
+    
+    # Crea la funzione chiedi che usa Esecuzione.lancia con prompt «rispondi solo con il JSON»
+    def chiedi(prompt):
+        # Aggiunge «rispondi solo con il JSON» al prompt
+        prompt = prompt + '\n\nRispondi solo con il JSON.'
+        codice, uscita = e.lancia(prompt, cartella)
+        # Restituisce solo l'uscita (la stringa), vuota se codice != 0
+        return uscita if codice == 0 else ''
+    
+    # Importa avviso.scrivi da /opt/ai-vm/lib/avviso.py se esiste
+    avviso_scrivi = None
+    try:
+        sys.path.insert(0, '/opt/ai-vm/lib')
+        import avviso
+        avviso_scrivi = avviso.scrivi
+    except (ImportError, OSError, FileNotFoundError):
+        pass
+    
+    # Crea la funzione avvisa che scrive sulla FIFO e stampa l'avviso
+    def avvisa(tipo, testo):
+        if avviso_scrivi:
+            try:
+                avviso_scrivi('orchestratore', tipo + ': ' + testo)
+            except Exception:
+                pass
+        # Stampa sempre l'avviso
+        print('avviso [{0}]: {1}'.format(tipo, testo), file=sys.stderr)
+    
+    # Esegui l'orchestratore
+    risultato = orchestratore.esegui(
+        richiesta=richiesta,
+        cartella=cartella,
+        chiedi=chiedi,
+        agenti=agenti,
+        avvisa=avvisa,
+        max_compiti=6
+    )
+    
+    return risultato
+
+
+def main():
+    """Main: parse degli argomenti e esecuzione del comando."""
+    parser = argparse.ArgumentParser(
+        description='Esecutore del comando agente: avvia pi con un profilo specifico.',
+        add_help=False
+    )
+    parser.add_argument('nome', nargs='?', help='nome del profilo')
+    parser.add_argument('compito', nargs='*', help='compito da eseguire')
+    parser.add_argument('--cartella', help='cartella di lavoro')
+    parser.add_argument('--file', help='lista di file separati da virgola per --verifica')
+    parser.add_argument('--verifica', help='comando di verifica da passare a ciclo.esegui')
+    parser.add_argument('--tentativi', type=int, default=3, help='numero di tentativi (1-5, default 3)')
+    parser.add_argument('--verifica-globale', help='comando di verifica globale da passare a ciclo.esegui')
+    parser.add_argument('--senza-revisione', action='store_true', help='non eseguire la revisione dopo la verifica')
+    parser.add_argument('--json', action='store_true', help='output JSON')
+    parser.add_argument('--aiuto', action='store_true', help='mostra aiuto e usa argparse')
+
+    args = parser.parse_args()
+
+    if args.aiuto:
+        parser.print_help()
+        sys.exit(0)
+
+    # Se il primo argomento è 'orchestratore', usa l'orchestratore
+    if args.nome == 'orchestratore':
+        if not args.compito:
+            print('errore: richiesta richiesta', file=sys.stderr)
+            sys.exit(2)
+        
+        if not args.cartella:
+            print('errore: --cartella richiesto', file=sys.stderr)
+            sys.exit(2)
+        
+        richiesta = ' '.join(args.compito) if isinstance(args.compito, list) else args.compito
+        cartella = args.cartella
+        radice = os.environ.get('AGENTE_RADICE', DEFAULT_RADICE)
+        
+        risultato = _orchestratore(richiesta, cartella, radice)
+        
+        if args.json:
+            _stampa_json(risultato)
+        else:
+            print('esito: {0}'.format(risultato['esito']))
+            if 'piano' in risultato:
+                print('piano: {0} compiti'.format(len(risultato['piano'])))
+            if 'risultati' in risultato:
+                print('risultati: {0} agenti'.format(len(risultato['risultati'])))
+        
+        if risultato['esito'] == 'fatto':
+            sys.exit(0)
+        else:
+            sys.exit(1)
+
+    # Se ci sono opzioni di verifica, usa il nuovo percorso
+    if args.verifica:
+        if not args.file:
+            print('errore: --file richiesto con --verifica', file=sys.stderr)
+            sys.exit(2)
+        if args.nome is None:
+            print('errore: nome del profilo richiesto', file=sys.stderr)
+            sys.exit(2)
+        if not args.compito:
+            print('errore: compito richiesto', file=sys.stderr)
+            sys.exit(2)
+
+        risultato = _esegui_con_verifica(
+            args.file, args.verifica, args.tentativi,
+            args.nome, args.compito,
+            args.cartella or os.getcwd(),
+            os.environ.get('AGENTE_RADICE', DEFAULT_RADICE),
+            os.environ.get('AGENTE_PI', DEFAULT_PI),
+            verifica_globale=args.verifica_globale,
+            senza_revisione=args.senza_revisione
+        )
+
+        if args.json:
+            _stampa_json(risultato)
+        else:
+            print('esito: {0}'.format(risultato['esito']))
+            print('tentativi: {0}'.format(len(risultato['tentativi'])))
+            print('file: {0}'.format(', '.join(risultato['file'])))
+
+        if risultato['esito'] == 'fatto':
+            sys.exit(0)
+        else:
+            sys.exit(1)
+
+    # Altrimenti usa il vecchio percorso
+    cartella = args.cartella
+    nome = args.nome
+    compito = args.compito
+
+    if nome is None:
+        print('errore: nome del profilo richiesto', file=sys.stderr)
+        sys.exit(1)
+
+    if not compito:
+        print('errore: compito richiesto', file=sys.stderr)
+        sys.exit(1)
+
+    # Determina la radice (default: cartella sopra bin/)
+    radice = os.environ.get('AGENTE_RADICE', DEFAULT_RADICE)
+    pi = os.environ.get('AGENTE_PI', DEFAULT_PI)
+
+    # Se --cartella non specificato, usa la cartella corrente
+    if cartella is None:
+        cartella = os.getcwd()
+
+    try:
+        argv, env, cwd = comando(nome, compito, cartella, radice, pi)
+    except ValueError as e:
+        print('errore: {0}'.format(e), file=sys.stderr)
+        sys.exit(1)
+
+    # Esegui pi con l'ambiente corrente più PI_CODING_AGENT_DIR e ne restituisce il codice di uscita
+    if not os.path.isdir(cwd):
+        print('errore: cartella inesistente: {0}'.format(cwd), file=sys.stderr)
+        sys.exit(1)
+
+    sys.exit(subprocess.run(argv, env=dict(os.environ, **env), cwd=cwd).returncode)
+
+
+if __name__ == '__main__':
+    main()
