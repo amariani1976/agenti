@@ -1,19 +1,24 @@
 ---
-stato: completato
+stato: bozza
 ramo: ai/agente-ciclo
 modello: esecutore
-verifica_globale: timeout 200 python3 -m unittest tests/test_agente.py tests/test_coda.py tests/test_misura.py tests/test_ciclo.py tests/test_esecuzione.py
-accettazione: cd piani && timeout 120 python3 -m unittest test_revisore_regole
-collaudi: 1
-collaudo: superato
+verifica_globale: timeout 300 python3 -m unittest tests/test_agente.py tests/test_coda.py tests/test_misura.py tests/test_ciclo.py tests/test_esecuzione.py tests/test_ruoli.py tests/test_orchestratore.py
+accettazione: cd piani && timeout 200 python3 -m unittest test_agente_catena
 ---
-# Piano: il revisore controlla come è scritto il codice
+# Piano: il comando agente con la catena vera
 
 ## Contesto
-`docs/PROGETTO.md` §4.15: funzioni e classi nelle librerie, riuso invece di copie, niente duplicati. Il revisore deve trattare queste regole come difetti. Il test `piani/test_revisore_regole.py` è già pronto e non si modifica. Python 3.6, sola libreria standard, niente f-string. Ogni comando con `timeout`.
+La prova vera ha mostrato che `_esegui_con_verifica` in `bin/agente` non funziona: lancia `pi` direttamente come l'utente che chiama (fuori dalla rete chiusa), poi usa un nome non definito (`Esecuzione`); filtra il comando di verifica rifiutando virgolette e `>`; controlla i file rispetto alla radice degli agenti invece che alla cartella di lavoro; da un collegamento simbolico non trova i suoi moduli. Il test `piani/test_agente_catena.py` è già pronto, non si modifica, e prova la catena con un `esegui-passo` finto. Python 3.6, sola libreria standard. Ogni comando con `timeout`.
 
 ## Passi
-- [x] 1. Regole e funzioni esistenti nel prompt del revisore
-  File: `ciclo/ruoli.py`
-  Cosa fare: nel prompt di `revisore` aggiungi, prima della richiesta del JSON, le regole di scrittura come difetti da segnalare: funzioni e classi nelle librerie e richiamate dove servono; si riusa ciò che esiste invece di copiarlo; nessun codice duplicato; una funzione fa una cosa sola. Aggiungi anche l'elenco delle funzioni e classi già presenti nel progetto (righe che iniziano con `def ` o `class ` nei file Python, `export function`/`export const`/`export class` nei file TypeScript, trovate con `git grep -n`), al massimo 200 righe, così il revisore vede se il diff ne ricrea una. Non cambiare il resto della funzione.
-  Verifica: `cd piani && timeout 120 python3 -m unittest test_revisore_regole && cd .. && timeout 120 python3 -m unittest tests/test_ruoli.py`
+- [ ] 1. Collegamento vero tra comando, ciclo ed esecuzione
+  File: `bin/agente`
+  Cosa fare: riscrivi solo `_esegui_con_verifica` e il calcolo della cartella dei moduli. La cartella dei moduli si ricava da `os.path.realpath(__file__)`, in tutto il file. In `_esegui_con_verifica`: niente chiamata diretta a `pi` e niente filtro dei caratteri della verifica (la verifica gira come `esecutore` dentro `esegui-passo`); crea `Esecuzione` come fa `_orchestratore` (stesse variabili `AGENTE_ESEGUI` e `AGENTE_PROGETTI`, modello `esecutore-pensiero`); se `e.progetto(cartella)` solleva `ValueError`, errore con uscita 2; i file devono essere relativi, senza `..`, dentro la cartella di lavoro, altrimenti uscita 2; tentativi da 1 a 5, altrimenti uscita 2; poi `ciclo.esegui(compito, cartella, verifica, file, tentativi, lancia=e.lancia, verifica_fn=e.verifica, lezioni=e.lezioni)`. Lascia com'è il resto del file, compreso il percorso senza `--verifica` e l'orchestratore. Non scrivere test.
+  Verifica: `cd piani && timeout 200 python3 -m unittest test_agente_catena && cd .. && timeout 200 python3 -m unittest tests/test_agente.py`
+- [ ] 2. Il test al suo posto
+  File: `tests/test_agente_catena.py`
+  Esegui:
+  ```bash
+mv piani/test_agente_catena.py tests/
+  ```
+  Verifica: `test -f tests/test_agente_catena.py && timeout 200 python3 -m unittest tests/test_agente_catena.py`
