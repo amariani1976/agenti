@@ -5,7 +5,7 @@ modello: esecutore
 verifica_globale: timeout 200 python3 -m unittest tests/test_agente.py tests/test_coda.py tests/test_misura.py tests/test_ciclo.py tests/test_esecuzione.py
 accettazione: cd piani && timeout 200 python3 -m unittest test_ruoli test_orchestratore
 collaudi: 1
-spezzati: 2
+spezzati: 3
 aiuti: 2
 ---
 # Piano: ruoli e orchestratore
@@ -171,11 +171,28 @@ EOF
   File: `bin/agente`
   Cosa fare: togliere l'opzione `--orchestratore` e far riconoscere `orchestratore` come primo argomento (`nome`): `agente orchestratore --cartella DIR [--json] "richiesta"`. Senza richiesta o senza `--cartella`: messaggio su stderr e uscita 2, senza traceback. In `_orchestratore`: niente `import sys` locale; `sys.path.insert(0, <radice repo>/ciclo)` e poi `import ruoli, orchestratore, esecuzione` (togliere gli `spec_from_file_location`); `Esecuzione(radice=os.environ.get('AGENTE_PROGETTI', '/srv/progetti'), esegui=[os.environ['AGENTE_ESEGUI']] se la variabile c'e', altrimenti ['sudo', '-n', '-u', 'esecutore', '/opt/ai-vm/libexec/esegui-passo'], modello='esecutore-pensiero')`; se `esecuzione.progetto(cartella)` solleva `ValueError`: messaggio su stderr e uscita 2. Agenti collegati: `'programmatore': lambda c, d: ruoli.programmatore(c, d, lancia=e.lancia, verifica_fn=e.verifica, lezioni=e.lezioni)`, `'revisore': lambda c, d: ruoli.revisore(c, d, e.lancia)`, `'ricercatore': lambda c, d: ruoli.ricercatore(c, d, e.lancia)`. `chiedi` restituisce l'uscita di `e.lancia(prompt + '\n\nRispondi solo con il JSON.', cartella)` (stringa vuota se il codice non e' 0). `avvisa` come ora (FIFO `orchestratore` se `/opt/ai-vm/lib/avviso.py` c'e', e stampa su stderr). Con `--json` stampa il resoconto in JSON su stdout, e nient'altro su stdout; uscita 0 se `fatto`, 1 altrimenti.
   Verifica: `timeout 200 python3 -m unittest tests/test_agente.py piani/test_agente_orchestratore.py`
-- [ ] 9. I test nuovi al loro posto
-  File: `piani/test_risposta.py`, `piani/test_ruoli_lettura.py`, `piani/test_orchestratore_casi.py`, `piani/test_agente_orchestratore.py`, `tests/test_risposta.py`, `tests/test_ruoli_lettura.py`, `tests/test_orchestratore_casi.py`, `tests/test_agente_orchestratore.py`
-  Cosa fare: eseguire dalla radice del progetto il comando qui sotto, così com'è, e nient'altro. È uno spostamento: i quattro file spariscono da `piani/` (è previsto, sono nella riga «File:») e compaiono identici in `tests/`. Non modificare il contenuto dei test, non toccare `piani/test_ruoli.py` né `piani/test_orchestratore.py` (servono all'accettazione).
-  Esegui:
-  ```bash
-mv piani/test_risposta.py piani/test_ruoli_lettura.py piani/test_orchestratore_casi.py piani/test_agente_orchestratore.py tests/
-  ```
+- [ ] 9.1 Verifica e copia di `test_risposta.py` (spezzato)
+  File: `piani/test_risposta.py`
+  Cosa fare: copiare il contenuto di `piani/test_risposta.py` in `tests/test_risposta.py`
+  Verifica: `test -f tests/test_risposta.py && grep -q "test_testo_intorno" tests/test_risposta.py`
+
+- [ ] 9.2 Copia di `test_ruoli_lettura.py` (spezzato)
+  File: `piani/test_ruoli_lettura.py`
+  Cosa fare: copiare il contenuto di `piani/test_ruoli_lettura.py` in `tests/test_ruoli_lettura.py`
+  Verifica: `test -f tests/test_ruoli_lettura.py && grep -q "test_file_nuovi_di_prima_restano" tests/test_ruoli_lettura.py`
+
+- [ ] 9.3 Copia di `test_orchestratore_casi.py` (spezzato)
+  File: `piani/test_orchestratore_casi.py`
+  Cosa fare: copiare il contenuto di `piani/test_orchestratore_casi.py` in `tests/test_orchestratore_casi.py`
+  Verifica: `test -f tests/test_orchestratore_casi.py && grep -q "test_difetti_senza_programmatore_chiedono_aiuto" tests/test_orchestratore_casi.py`
+
+- [ ] 9.4 Copia di `test_agente_orchestratore.py` (spezzato)
+  File: `piani/test_agente_orchestratore.py`
+  Cosa fare: copiare il contenuto di `piani/test_agente_orchestratore.py` in `tests/test_agente_orchestratore.py`
+  Verifica: `test -f tests/test_agente_orchestratore.py && grep -q "test_da_capo_a_fondo" tests/test_agente_orchestratore.py`
+
+- [ ] 9.5 Rimozione originali e verifica finale (spezzato)
+  File: `piani/test_risposta.py`
+  Cosa fare: rimuovere i 4 file originali da `piani/` ed eseguire i test
   Verifica: `test ! -f piani/test_risposta.py && test ! -f piani/test_ruoli_lettura.py && test ! -f piani/test_orchestratore_casi.py && test ! -f piani/test_agente_orchestratore.py && timeout 300 python3 -m unittest tests/test_risposta.py tests/test_ruoli_lettura.py tests/test_orchestratore_casi.py tests/test_agente_orchestratore.py tests/test_ruoli.py tests/test_orchestratore.py tests/test_agente.py`
+
