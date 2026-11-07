@@ -6,6 +6,7 @@ verifica_globale: timeout 300 python3 -m unittest tests/test_agente.py tests/tes
 accettazione: cd piani && timeout 200 python3 -m unittest test_revisore_tre_letture
 correzioni_semafori: 1
 spezzati: 1
+aiuti: 1
 ---
 # Piano: tre letture del revisore, ciascuna con il suo compito
 
@@ -29,7 +30,7 @@ mv piani/test_revisore_tre_letture.py tests/
   ```
   Verifica: `test -f tests/test_revisore_tre_letture.py && timeout 200 python3 -m unittest tests/test_revisore_tre_letture.py`
 
-- [ ] 4.1 Rinominare TOKEN in test_kb.py (spezzato)
+- [!] 4.1 Rinominare TOKEN in test_kb.py (spezzato)
   File: `tests/test_kb.py`
   Cosa fare: sostituire `TOKEN = 'token-di-prova-0123456789'` con `CHIAVA_DI_TEST = 'finto-token-x-123'` e aggiornare tutti gli usi
   Verifica: `grep -c "TOKEN = 'token-di-prova" tests/test_kb.py`
