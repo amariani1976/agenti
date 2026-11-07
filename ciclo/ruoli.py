@@ -96,8 +96,35 @@ def _elenco_funzioni(cartella):
     return '\n'.join(risultato[:200])
 
 
+def _aggiungi_difetti(difetti, nuovi):
+    """Aggiunge nuovi difetti senza duplicati."""
+    unione = list(difetti) if difetti else []
+    if nuovi:
+        for d in nuovi:
+            if d not in unione:
+                unione.append(d)
+    return unione
+
+
+def _aggiungi_richieste_non_fatte(difetti, richieste):
+    """Aggiunge le richieste non fatte come difetti (senza duplicati)."""
+    unione = list(difetti) if difetti else []
+    if richieste:
+        for r in richieste:
+            if not r.get('fatta', True):
+                testo = 'richiesta non fatta: ' + r.get('richiesta', '')
+                if testo not in unione:
+                    unione.append(testo)
+    return unione
+
+
 def revisore(compito, cartella, lancia):
-    """Revisore: chiede un giudizio in JSON e annulla ogni scrittura fatta durante la chiamata."""
+    """Revisore: chiede un giudizio in JSON e annulla ogni scrittura fatta durante la chiamata.
+    
+    Chama lancia due volte con lo stesso prompt, ripristinando la cartella dopo ciascuna.
+    ok è vero solo se ogni lettura leggibile ha ok vero e nessuna richiesta con fatta falso.
+    difetti è l'unione (senza duplicati) dei difetti e delle richieste non fatte.
+    """
     prima = _istantanea(cartella)
     prompt = 'Compito: ' + compito['compito']
     diff = _diff(cartella, sorted(_sporchi(cartella)))
@@ -110,20 +137,59 @@ def revisore(compito, cartella, lancia):
     prompt += '\n- Una funzione fa una cosa sola'
     prompt += '\n\nFunzioni e classi esistenti nel progetto:'
     prompt += '\n' + _elenco_funzioni(cartella)
-    prompt += '\n\nRispondi SOLO con un JSON: {"ok": bool, "difetti": [stringhe]}'
-    try:
-        codice, uscita = lancia(prompt, cartella)
-    except Exception as e:
-        _ripristina(cartella, prima)
-        return {'esito': 'non-fatto', 'motivo': 'eccezione durante la chiamata: ' + str(e)}
-    scritture_annullate = _ripristina(cartella, prima)
-    dati = primo_json(uscita)
-    if dati is None:
-        return {'esito': 'non-fatto', 'motivo': 'risposta illeggibile: non è un JSON valido'}
+    prompt += '\n\nElenca le richieste del compito una per una e rispondi SOLO con un JSON:'
+    prompt += ' {"richieste": [{"richiesta": testo, "fatta": bool}], "ok": bool, "difetti": [stringhe]}'
+    prompt += ' ok è vero solo se tutte le richieste sono fatte e non ci sono difetti.'
+    
+    letture = []
+    for _ in range(2):
+        try:
+            codice, uscita = lancia(prompt, cartella)
+        except Exception as e:
+            _ripristina(cartella, prima)
+            return {'esito': 'non-fatto', 'motivo': 'eccezione durante la chiamata: ' + str(e)}
+        scritture_annullate = _ripristina(cartella, prima)
+        dati = primo_json(uscita)
+        if dati is None:
+            letture.append(None)
+        else:
+            letture.append({'ok': dati.get('ok', False), 'difetti': dati.get('difetti', []),
+                           'richieste': dati.get('richieste', []), 'scritture_annullate': scritture_annullate})
+    
+    # Filtra le letture leggibili
+    letture_leggibili = [l for l in letture if l is not None]
+    if not letture_leggibili:
+        return {'esito': 'non-fatto', 'motivo': 'entrambe le risposte illeggibili'}
+    
+    # ok è vero solo se ogni lettura leggibile ha ok vero e tutte le richieste hanno fatta vero
+    ok = True
+    tutte_richieste = []
+    tutti_difetti = []
+    for l in letture_leggibili:
+        if not l['ok']:
+            ok = False
+        tutte_richieste.extend(l['richieste'])
+        tutti_difetti = _aggiungi_difetti(tutti_difetti, l['difetti'])
+    # Aggiungi richieste non fatte come difetti (evitando duplicati)
+    for r in tutte_richieste:
+        if not r.get('fatta', True):
+            testo = 'richiesta non fatta: ' + r.get('richiesta', '')
+            # Evita duplicati: non aggiungere se c'è già un difetto che la contiene
+            if not any(r.get('richiesta', '') in d for d in tutti_difetti):
+                tutti_difetti.append(testo)
+            # Se c'è una richiesta non fatta, ok diventa false
+            if not ok:
+                pass  # ok è già false
+            else:
+                ok = False
+    
+    # Unione delle scritture annullate (dall'ultima lettura leggibile)
+    scritture_annullate = letture_leggibili[-1]['scritture_annullate']
+    
     return {
         'esito': 'fatto',
-        'ok': dati.get('ok', False),
-        'difetti': dati.get('difetti', []),
+        'ok': ok,
+        'difetti': tutti_difetti,
         'scritture_annullate': scritture_annullate
     }
 
