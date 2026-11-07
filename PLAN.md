@@ -34,7 +34,7 @@ mv piani/test_orchestratore_revisione.py tests/
 sed -i "s/'compito': compito\['compito'\]}/'compito': compito}/" bin/agente
   ```
   Verifica: `cd piani && timeout 60 python3 -m unittest test_orchestratore_revisione_compito && cd .. && timeout 200 python3 -m unittest tests/test_orchestratore_revisione.py tests/test_agente_catena.py tests/test_orchestratore.py`
-- [ ] 4.1 Il test del compito al suo posto
+- [x] 4.1 Il test del compito al suo posto
   File: `piani/test_orchestratore_revisione_compito.py`, `tests/test_orchestratore_revisione_compito.py`
   Perché: il test `test_la_revisione_accetta_il_compito_come_testo` si sposta da `piani/` a `tests/`, non si toglie: il contenuto resta identico.
   Esegui:
