@@ -30,7 +30,7 @@ mv piani/test_revisore_tre_letture.py tests/
   ```
   Verifica: `test -f tests/test_revisore_tre_letture.py && timeout 200 python3 -m unittest tests/test_revisore_tre_letture.py`
 
-- [ ] 4.1 L'orchestratore conta tre letture del revisore
+- [x] 4.1 L'orchestratore conta tre letture del revisore
   File: `tests/test_agente_orchestratore.py`
   Cosa fare: l'unico controllo ❌ dei semafori è `test_da_capo_a_fondo`, che si aspetta ancora piano + due letture (3 righe) mentre ora le letture sono tre (4 righe). Gli ⚠️ sui TOKEN nei test sono solo avvisi su file fuori dal piano: non toccarli. Esegui:
   ```bash
