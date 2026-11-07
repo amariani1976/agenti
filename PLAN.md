@@ -1,5 +1,5 @@
 ---
-stato: bozza
+stato: in-esecuzione
 ramo: ai/agente-ciclo
 modello: esecutore
 verifica_globale: timeout 300 python3 -m unittest tests/test_agente.py tests/test_coda.py tests/test_misura.py tests/test_ciclo.py tests/test_esecuzione.py tests/test_ruoli.py tests/test_orchestratore.py
