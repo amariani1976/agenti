@@ -25,41 +25,18 @@ mv piani/test_revisore_affidabile.py tests/
   ```
   Verifica: `test -f tests/test_revisore_affidabile.py && timeout 200 python3 -m unittest tests/test_revisore_affidabile.py`
 
-- [!] 3. Correzione dei semafori rossi (giro 1)
-  File: `tests/test_cliente.py`, `tests/test_kb.py`, `tests/test_servizio.py`
-  Cosa fare: a fine piano le regole di verifica del progetto (semafori) sono ROSSE. Capisci la causa di ogni
-  controllo segnato con ❌ qui sotto e correggila nel codice, senza spegnere controlli, saltare test o cambiare
-  `controlli.toml`. I ⚠️ sono avvisi: correggili solo se riguardano i file del piano.
-  ## Semafori: 🔴 ROSSO
-  
-  - Base `1b7d0fc49af6`; controlli del progetto: `controlli.toml`.
-  
-  - ✅ **verifica generale del piano** (1.0 s)
-    - Ran 35 tests in 0.975s
-    - OK
-  - ✅ **test finali della fase** (0.2 s)
-    - Ran 5 tests in 0.168s
-    - OK
-  - ✅ **segreti**
-  - ✅ **conflitti**
-  - ✅ **file-spuri**
-  - ✅ **test-saltati**
-  - ✅ **test-cancellati**
-  - ✅ **todo**
-  - ✅ **file-grandi**
-  - ⚠️ **file-monolitici** — File di codice oltre 500 righe modificati: dividere in moduli piccoli
-    - web/web.py (545 righe)
-  - ✅ **codice-ripetuto**
-  - ⚠️ **segreti-nei-test** — Valori simili a segreti nei file di test (controllare che siano finti)
-    - tests/test_cliente.py:15: …TOKEN = 'tok…
-    - tests/test_cliente.py:62: …TOKEN='sbagl…
-    - tests/test_kb.py:53: …-----BEGIN O…
-    - tests/test_servizio.py:19: …TOKEN = 'tok…
-    - tests/test_servizio.py:71: …token='sbagl…
-  - ❌ **Test** (22.3 s)
-    - uscita 1
-    - FAIL: test_da_capo_a_fondo (test_agente_orchestratore.Orchestratore.test_da_capo_a_fondo)
-    - Ran 146 tests in 22.176s
-    - FAILED (failures=1)
-  - ✅ **Solo libreria standard di Python**
-  Verifica: `/opt/ai-vm/bin/semafori --base 1b7d0fc49af6; test $? -lt 2`
+- [ ] 3.1 Il test dell'orchestratore conta le due letture del revisore
+  File: `tests/test_agente_orchestratore.py`
+  Cosa fare: l'unico ❌ dei semafori è `test_da_capo_a_fondo`. Non è un difetto del codice: dal passo 1 il revisore
+  chiama `lancia` due volte, quindi il finto esegui-passo viene chiamato 3 volte (piano + due letture) e non 2.
+  Si aggiorna solo il numero atteso alla riga 63. Non toccare `ciclo/`, `bin/agente`, `controlli.toml` né i file
+  segnalati dai ⚠️ (sono avvisi su file fuori dal piano: i token dei test sono già finti).
+  Esegui:
+  ```bash
+sed -i "63s/\] \* 2)/] * 3)  # piano + due letture del revisore/" tests/test_agente_orchestratore.py
+  ```
+  Verifica: `grep -q "esecutore-pensiero'\] \* 3)" tests/test_agente_orchestratore.py && timeout 120 python3 -m unittest tests/test_agente_orchestratore.py`
+- [ ] 3.2 Semafori di nuovo verdi
+  File: nessuno (solo verifica)
+  Cosa fare: niente da modificare; si controlla che la suite completa passi e che i semafori non siano rossi.
+  Verifica: `timeout 600 python3 -m unittest discover -s tests -p 'test_*.py' && { /opt/ai-vm/bin/semafori --base 1b7d0fc49af6; test $? -lt 2; }`
