@@ -112,3 +112,70 @@ def _prompt(compito, file, verifica, lezioni, errore, fuori):
     if errore:
         parti.append('Errore della verifica nel tentativo precedente:\n' + errore)
     return '\n\n'.join(parti)[:MAX_PROMPT]
+
+
+def _controlla(cartella, verifica, file):
+    """Errori d'ingresso: ValueError se la cartella non e' la radice di un repository git, il perimetro e'
+    vuoto o esce dalla cartella, la verifica e' vuota."""
+    if not os.path.isdir(cartella):
+        raise ValueError('cartella inesistente: ' + cartella)
+    codice, radice = _git(cartella, 'rev-parse', '--show-toplevel')
+    if codice != 0 or os.path.realpath(radice.strip()) != os.path.realpath(cartella):
+        raise ValueError('non e\' la radice di un repository git: ' + cartella)
+    if not verifica or not verifica.strip():
+        raise ValueError('verifica vuota')
+    if not file:
+        raise ValueError('nessun file nel perimetro')
+    for nome in file:
+        pulito = os.path.normpath(nome) if nome else ''
+        if not pulito or os.path.isabs(pulito) or pulito == '..' or pulito.startswith('..' + os.sep):
+            raise ValueError('file fuori dal progetto: ' + repr(nome))
+
+
+def esegui(compito, cartella, verifica, file, tentativi=3, lancia=None, verifica_fn=None, lezioni=None):
+    """Affida il compito all'agente fino a `tentativi` volte.
+
+    lancia(prompt, cartella) -> (codice, uscita); verifica_fn(comando, cartella) -> (codice, uscita);
+    lezioni(compito) -> lista di testi. Ogni modifica fuori da `file` viene annullata; se nessun tentativo
+    riesce i file del perimetro tornano come all'inizio. Restituisce
+    {'esito': 'fatto'|'non-fatto', 'tentativi': [...], 'file': file, 'diff': testo}."""
+    _controlla(cartella, verifica, file)
+    file = [os.path.normpath(nome) for nome in file]
+    perimetro = set(file)
+    prima = {}
+    for nome in _sporchi(cartella):
+        if nome not in perimetro:
+            prima[nome] = _leggi(cartella, nome)
+    inizio = {}
+    for nome in file:
+        inizio[nome] = _leggi(cartella, nome)
+    testi = list(lezioni(compito) or []) if lezioni else []
+    risultato = {'esito': 'non-fatto', 'tentativi': [], 'file': file, 'diff': ''}
+    errore = ''
+    fuori = []
+    for numero in range(1, tentativi + 1):
+        prompt = _prompt(compito, file, verifica, testi, errore, fuori)
+        codice_agente, uscita_agente = lancia(prompt, cartella)
+        fuori = []
+        for nome in sorted(_sporchi(cartella) | set(prima)):
+            if nome in perimetro:
+                continue
+            if nome in prima:
+                if _leggi(cartella, nome) != prima[nome]:
+                    fuori.append(nome)
+                    _scrivi(cartella, nome, prima[nome])
+            else:
+                fuori.append(nome)
+                _ripristina_pulito(cartella, nome)
+        codice, uscita = verifica_fn(verifica, cartella)
+        uscita = (uscita or '')[-MAX_USCITA:]
+        risultato['tentativi'].append({'numero': numero, 'agente': codice_agente, 'verifica': codice,
+                                       'uscita': uscita, 'fuori_perimetro': fuori})
+        if codice == 0 and not fuori:
+            risultato['esito'] = 'fatto'
+            risultato['diff'] = _diff(cartella, file)
+            return risultato
+        errore = uscita if codice != 0 else ''
+    for nome in file:
+        _scrivi(cartella, nome, inizio[nome])
+    return risultato

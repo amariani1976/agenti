@@ -112,7 +112,7 @@ FINE_CICLO
   ```
   Verifica: `timeout 60 python3 -c "import sys; sys.path.insert(0, 'ciclo'); import ciclo; assert ciclo.MAX_USCITA == 3000 and ciclo.MAX_PROMPT == 20000; [getattr(ciclo, n) for n in ('_git', '_leggi', '_scrivi', '_sporchi', '_ripristina_pulito', '_diff', '_prompt')]; assert 'Regola' in ciclo._prompt('c', ['a.py'], 'v', ['Regola'], '', [])"`
 
-- [ ] 1.2 Il ciclo, parte 2: controllo dell'ingresso ed `esegui`
+- [x] 1.2 Il ciclo, parte 2: controllo dell'ingresso ed `esegui`
   File: `ciclo/ciclo.py`
   Cosa fare: aggiungi in FONDO al file (con `>>`, non sovrascrivere) ESATTAMENTE questo testo, con questo comando:
   ```sh
