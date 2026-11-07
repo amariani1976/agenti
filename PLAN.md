@@ -7,6 +7,7 @@ accettazione: cd piani && timeout 200 python3 -m unittest test_revisore_tre_lett
 correzioni_semafori: 1
 spezzati: 1
 aiuti: 1
+collaudi: 1
 ---
 # Piano: tre letture del revisore, ciascuna con il suo compito
 
