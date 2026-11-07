@@ -1,241 +1,33 @@
 ---
-stato: completato
+stato: approvato
 ramo: ai/agente-ciclo
 modello: esecutore
-verifica_globale: timeout 300 sh -c 'python3 -m unittest tests/test_agente.py tests/test_coda.py && python3 -m unittest tests/test_misura.py'
-accettazione: timeout 200 python3 -m unittest tests/test_ciclo.py tests/test_esecuzione.py
-spezzati: 2
-aiuti: 4
-correzioni_semafori: 1
-collaudi: 1
-collaudo: superato
+verifica_globale: timeout 200 python3 -m unittest tests/test_agente.py tests/test_coda.py tests/test_misura.py tests/test_ciclo.py tests/test_esecuzione.py
+accettazione: cd piani && timeout 200 python3 -m unittest test_ruoli test_orchestratore
 ---
-# Piano: un agente unico che usa il modello locale nel modo migliore
+# Piano: ruoli e orchestratore
 
 ## Contesto
-Hermes e Claude devono poter affidare un compito al modello locale con lo stesso metodo che fa funzionare il runner dei piani: comando di verifica che deve passare, al massimo 3 tentativi con l'errore del tentativo prima, perimetro dei file con annullamento di ciò che esce, lezioni dalla KB, esito chiaro. Agente e verifica passano da `esegui-passo` (utente `esecutore`, rete solo locale, guardiano dei comandi appesi). I test sono già pronti e non si modificano: sono il contratto. Python 3.6, sola libreria standard, niente f-string nei file nuovi. Ogni comando con `timeout`. Non usare git per fare commit: il ciclo usa git solo per leggere e ripristinare.
+`docs/PROGETTO.md` §4.1: un solo modello, più agenti con capacità specifiche, e un orchestratore che li richiama. Il modello decide il piano, il programma lo convalida e lo esegue in sequenza. I test sono già pronti in `piani/test_ruoli.py` e `piani/test_orchestratore.py` e non si modificano: sono il contratto. Restano in `piani/` finché la fase non è finita, perché fuori da qui farebbero fallire i controlli generali prima che il codice esista. Python 3.6, sola libreria standard, niente f-string nei file nuovi. Ogni comando con `timeout`.
 
 ## Passi
-- [x] 1.1 Il ciclo, parte 1: funzioni di appoggio
-  File: `ciclo/ciclo.py`
-  Nota: il lavoro dei tentativi precedenti era giusto; falliva la verifica generale per un difetto dei test (corretta nel piano). Rifai il passo così com'è, senza toccare altri file.
-  Cosa fare: file nuovo. Crealo con ESATTAMENTE questo comando (copialo così com'è, non cambiare il testo):
-  ```sh
-  mkdir -p ciclo && cat > ciclo/ciclo.py <<'FINE_CICLO'
-"""Ciclo dell'agente: il metodo del runner per un compito solo (verifica, tentativi, perimetro, lezioni)."""
-import os
-import subprocess
-
-MAX_USCITA = 3000
-MAX_PROMPT = 20000
-
-
-def _git(cartella, *argomenti):
-    """Esegue git nella cartella; restituisce (codice, uscita)."""
-    r = subprocess.run(['git', '-C', cartella] + list(argomenti), stdout=subprocess.PIPE,
-                       stderr=subprocess.PIPE, universal_newlines=True, timeout=60)
-    return r.returncode, r.stdout
-
-
-def _leggi(cartella, nome):
-    """Contenuto del file in byte, None se non esiste."""
-    percorso = os.path.join(cartella, nome)
-    if not os.path.isfile(percorso):
-        return None
-    with open(percorso, 'rb') as f:
-        return f.read()
-
-
-def _scrivi(cartella, nome, contenuto):
-    """Riporta il file al contenuto dato; None vuol dire cancellarlo."""
-    percorso = os.path.join(cartella, nome)
-    if contenuto is None:
-        if os.path.isfile(percorso):
-            os.remove(percorso)
-        return
-    cartella_file = os.path.dirname(percorso)
-    if not os.path.isdir(cartella_file):
-        os.makedirs(cartella_file)
-    with open(percorso, 'wb') as f:
-        f.write(contenuto)
-
-
-def _sporchi(cartella):
-    """Insieme dei file modificati, cancellati o nuovi secondo git status."""
-    codice, uscita = _git(cartella, 'status', '--porcelain', '-z', '--untracked-files=all')
-    voci = uscita.split('\0')
-    nomi = set()
-    i = 0
-    while i < len(voci):
-        voce = voci[i]
-        if voce:
-            nomi.add(voce[3:])
-            if voce[0] in 'RC':
-                i += 1
-        i += 1
-    return nomi
-
-
-def _ripristina_pulito(cartella, nome):
-    """Riporta un file che era pulito allo stato di HEAD (lo cancella se HEAD non lo ha)."""
-    codice, uscita = _git(cartella, 'checkout', '-q', 'HEAD', '--', nome)
-    if codice != 0:
-        _scrivi(cartella, nome, None)
-
-
-def _diff(cartella, file):
-    """Diff dei file del perimetro rispetto a HEAD, compresi i file nuovi."""
-    parti = []
-    for nome in file:
-        codice, tracciato = _git(cartella, 'ls-files', '--', nome)
-        if tracciato.strip():
-            codice, uscita = _git(cartella, 'diff', 'HEAD', '--', nome)
-        elif os.path.isfile(os.path.join(cartella, nome)):
-            codice, uscita = _git(cartella, 'diff', '--no-index', '--', '/dev/null', nome)
-        else:
-            uscita = ''
-        if uscita:
-            parti.append(uscita)
-    return ''.join(parti)
-
-
-def _prompt(compito, file, verifica, lezioni, errore, fuori):
-    """Prompt per l'agente: compito, perimetro, verifica, lezioni ed errore del tentativo prima."""
-    parti = ['Compito: ' + compito,
-             'File che puoi modificare (solo questi): ' + ', '.join(file),
-             'Verifica che deve passare: ' + verifica]
-    if lezioni:
-        parti.append('Lezioni dalla KB:\n' + '\n'.join('- ' + l for l in lezioni))
-    if fuori:
-        parti.append('Il tentativo precedente ha toccato file fuori dal perimetro (annullati): ' + ', '.join(fuori))
-    if errore:
-        parti.append('Errore della verifica nel tentativo precedente:\n' + errore)
-    return '\n\n'.join(parti)[:MAX_PROMPT]
-FINE_CICLO
-  ```
-  Verifica: `timeout 60 python3 -c "import sys; sys.path.insert(0, 'ciclo'); import ciclo; assert ciclo.MAX_USCITA == 3000 and ciclo.MAX_PROMPT == 20000; [getattr(ciclo, n) for n in ('_git', '_leggi', '_scrivi', '_sporchi', '_ripristina_pulito', '_diff', '_prompt')]; assert 'Regola' in ciclo._prompt('c', ['a.py'], 'v', ['Regola'], '', [])"`
-
-- [x] 1.2 Il ciclo, parte 2: controllo dell'ingresso ed `esegui`
-  File: `ciclo/ciclo.py`
-  Cosa fare: aggiungi in FONDO al file (con `>>`, non sovrascrivere) ESATTAMENTE questo testo, con questo comando:
-  ```sh
-  cat >> ciclo/ciclo.py <<'FINE_CICLO'
-
-
-def _controlla(cartella, verifica, file):
-    """Errori d'ingresso: ValueError se la cartella non e' la radice di un repository git, il perimetro e'
-    vuoto o esce dalla cartella, la verifica e' vuota."""
-    if not os.path.isdir(cartella):
-        raise ValueError('cartella inesistente: ' + cartella)
-    codice, radice = _git(cartella, 'rev-parse', '--show-toplevel')
-    if codice != 0 or os.path.realpath(radice.strip()) != os.path.realpath(cartella):
-        raise ValueError('non e\' la radice di un repository git: ' + cartella)
-    if not verifica or not verifica.strip():
-        raise ValueError('verifica vuota')
-    if not file:
-        raise ValueError('nessun file nel perimetro')
-    for nome in file:
-        pulito = os.path.normpath(nome) if nome else ''
-        if not pulito or os.path.isabs(pulito) or pulito == '..' or pulito.startswith('..' + os.sep):
-            raise ValueError('file fuori dal progetto: ' + repr(nome))
-
-
-def esegui(compito, cartella, verifica, file, tentativi=3, lancia=None, verifica_fn=None, lezioni=None):
-    """Affida il compito all'agente fino a `tentativi` volte.
-
-    lancia(prompt, cartella) -> (codice, uscita); verifica_fn(comando, cartella) -> (codice, uscita);
-    lezioni(compito) -> lista di testi. Ogni modifica fuori da `file` viene annullata; se nessun tentativo
-    riesce i file del perimetro tornano come all'inizio. Restituisce
-    {'esito': 'fatto'|'non-fatto', 'tentativi': [...], 'file': file, 'diff': testo}."""
-    _controlla(cartella, verifica, file)
-    file = [os.path.normpath(nome) for nome in file]
-    perimetro = set(file)
-    prima = {}
-    for nome in _sporchi(cartella):
-        if nome not in perimetro:
-            prima[nome] = _leggi(cartella, nome)
-    inizio = {}
-    for nome in file:
-        inizio[nome] = _leggi(cartella, nome)
-    testi = list(lezioni(compito) or []) if lezioni else []
-    risultato = {'esito': 'non-fatto', 'tentativi': [], 'file': file, 'diff': ''}
-    errore = ''
-    fuori = []
-    for numero in range(1, tentativi + 1):
-        prompt = _prompt(compito, file, verifica, testi, errore, fuori)
-        codice_agente, uscita_agente = lancia(prompt, cartella)
-        fuori = []
-        for nome in sorted(_sporchi(cartella) | set(prima)):
-            if nome in perimetro:
-                continue
-            if nome in prima:
-                if _leggi(cartella, nome) != prima[nome]:
-                    fuori.append(nome)
-                    _scrivi(cartella, nome, prima[nome])
-            else:
-                fuori.append(nome)
-                _ripristina_pulito(cartella, nome)
-        codice, uscita = verifica_fn(verifica, cartella)
-        uscita = (uscita or '')[-MAX_USCITA:]
-        risultato['tentativi'].append({'numero': numero, 'agente': codice_agente, 'verifica': codice,
-                                       'uscita': uscita, 'fuori_perimetro': fuori})
-        if codice == 0 and not fuori:
-            risultato['esito'] = 'fatto'
-            risultato['diff'] = _diff(cartella, file)
-            return risultato
-        errore = uscita if codice != 0 else ''
-    for nome in file:
-        _scrivi(cartella, nome, inizio[nome])
-    return risultato
-FINE_CICLO
-  ```
-  Verifica: `timeout 120 python3 -m unittest tests.test_ciclo`
-
-- [x] 2. L'esecuzione vera
-  File: `ciclo/esecuzione.py`
-  Cosa fare: classe `Esecuzione(radice='/srv/progetti', esegui=['sudo', '-n', '-u', 'esecutore', '/opt/ai-vm/libexec/esegui-passo'], modello='esecutore-pensiero', tempo=1900)`. `progetto(cartella)`: il nome se `realpath(cartella)` è esattamente `radice/<nome>`, altrimenti `ValueError`. `lancia(prompt, cartella)`: esegue `esegui + ['agente', nome, modello]` con il prompt su stdin; restituisce `(codice, uscita)`. `verifica(comando, cartella)`: `esegui + ['verifica', nome]` con il comando su stdin. `lezioni(compito)`: `kb cerca` con le prime parole del compito, al massimo 1500 caratteri, lista vuota se `kb` manca o fallisce. Ogni chiamata con `timeout=self.tempo`; un tempo scaduto diventa `(124, 'tempo massimo superato')`.
-  Verifica: `timeout 120 python3 -m unittest tests/test_esecuzione.py`
-- [x] 3. Il comando `agente` col ciclo
+- [ ] 1. I ruoli
+  File: `ciclo/ruoli.py`
+  Cosa fare: `programmatore(compito, cartella, esegui=ciclo.esegui, **k)`: chiama `esegui(compito['compito'], cartella, compito['verifica'], compito['file'], **k)`. `revisore(compito, cartella, lancia)`: prompt con il compito, `git diff` della cartella (anche i file nuovi) e la richiesta di rispondere SOLO con un JSON `{"ok": bool, "difetti": [stringhe]}`; dopo `lancia`, annulla ogni cambio fatto durante la chiamata rispetto a prima (file tracciati al contenuto di prima, file nuovi cancellati, quelli già cambiati prima restano come erano) e li elenca in `scritture_annullate` in ordine; legge il primo oggetto JSON della risposta (anche dentro un blocco ```json). Risposta illeggibile: `{'esito': 'non-fatto', 'motivo': ...}`. `ricercatore(compito, cartella, lancia)`: chiama `lancia` con il compito e l'istruzione di cercare nella KB, poi con la skill web, e salvare la sintesi nella KB; restituisce `{'esito': 'fatto', 'testo': uscita}` se il codice è 0, con la stessa sola lettura del revisore sui file della cartella.
+  Verifica: `cd piani && timeout 120 python3 -m unittest test_ruoli`
+- [ ] 2. L'orchestratore
+  File: `ciclo/orchestratore.py`
+  Cosa fare: `esegui(richiesta, cartella, chiedi, agenti, avvisa=None, max_compiti=6)`. Prompt per `chiedi`: la richiesta, i ruoli disponibili (`agenti`) con cosa sanno fare, la forma `{"compiti": [{"agente", "compito", "file", "verifica"}]}` (`file` e `verifica` obbligatori per il programmatore). Legge il primo oggetto JSON della risposta e lo convalida: da 1 a `max_compiti` compiti, agente fra quelli dati, compito non vuoto, per il programmatore file relativi senza `..` e verifica non vuota. Se non è valido richiede una sola volta con il motivo («piano non valido: …»); se resta non valido, esito `aiuto`. Esegue i compiti in ordine: un esito diverso da `fatto` ferma tutto con `aiuto`; un revisore con `ok` falso porta a un solo giro di correzione: il programmatore dell'ultimo compito del programmatore rifà con i difetti nel compito, poi il revisore ripassa; se trova ancora difetti, `aiuto`. `avvisa(tipo, testo)` alla fine (`fatto` o `aiuto`) con la richiesta e, se serve, il motivo e i difetti. Restituisce `{'esito', 'piano', 'risultati', 'motivo'}`.
+  Verifica: `cd piani && timeout 120 python3 -m unittest test_orchestratore`
+- [ ] 3. L'orchestratore dal comando `agente`
   File: `bin/agente`
-  Cosa fare: nuove opzioni `--file a,b`, `--verifica "comando"`, `--tentativi N` (1-5, predefinito 3), `--json`. Con `--verifica` il comando usa `ciclo.esegui` con `Esecuzione` (import da `../ciclo`), stampa l'esito (in JSON con `--json`, altrimenti esito, tentativi e file) ed esce con 0 se `fatto`, 1 se `non-fatto`, 2 per errori d'ingresso; senza `--verifica` resta tutto com'è oggi. Aggiungi le opzioni all'aiuto.
-  Verifica: `timeout 120 python3 -m unittest tests/test_agente.py && python3 bin/agente --aiuto 2>&1 | grep -q -- "--verifica" || python3 bin/agente 2>&1 | grep -q -- "--verifica"`
-
-- [x] 4.1 Semafori, parte 1: il registro delle misure si legge al momento della scrittura
-  File: `coda/misura.py`
-  Nota: `test_misura` fallisce solo con `discover`: `test_coda` importa `proxy` (e quindi `misura`) prima che `test_misura` imposti `CODA_MISURE`, così `REGISTRO` resta quello predefinito. Il test non si tocca: si corregge `misura.py`. Non toccare altri file.
-  Cosa fare: esegui ESATTAMENTE questo comando (cambia una riga sola):
-  ```sh
-  sed -i "s/open(REGISTRO, 'a', encoding='utf-8')/open(os.environ.get('CODA_MISURE', REGISTRO), 'a', encoding='utf-8')/" coda/misura.py
+  Cosa fare: `agente orchestratore --cartella DIR "richiesta"` usa `orchestratore.esegui` con: `chiedi` = una chiamata al modello attraverso `Esecuzione.lancia` con prompt «rispondi solo con il JSON»; gli agenti `programmatore`, `revisore`, `ricercatore` di `ruoli` collegati a `Esecuzione`; `avvisa` che scrive sulla FIFO `orchestratore` con `avviso.scrivi` di `/opt/ai-vm/lib/avviso.py` (se manca, non fa nulla) e stampa l'avviso. Esce con 0 se `fatto`, 1 altrimenti, e stampa il resoconto in JSON con `--json`.
+  Verifica: `timeout 120 python3 -m unittest tests/test_agente.py && grep -q "orchestratore" bin/agente`
+- [ ] 4. I test al loro posto
+  File: `tests/test_ruoli.py`, `tests/test_orchestratore.py`
+  Esegui:
+  ```bash
+mv piani/test_ruoli.py piani/test_orchestratore.py tests/
   ```
-  Verifica: `grep -q "open(os.environ.get('CODA_MISURE', REGISTRO), 'a'" coda/misura.py && cd tests && timeout 120 python3 -m unittest test_coda test_misura`
+  Verifica: `test -f tests/test_ruoli.py && test -f tests/test_orchestratore.py && timeout 200 python3 -m unittest tests/test_ruoli.py tests/test_orchestratore.py`
 
-- [x] 4.2.1 Spostare `tests/test_ruoli.py` in `piani/`
-  File: `tests/test_ruoli.py`, `piani/test_ruoli.py`
-  Nota: uno spostamento cambia DUE file (quello cancellato e quello nuovo): entrambi sono nel perimetro. Non toccare il contenuto del file e non toccare altri file.
-  Cosa fare: esegui ESATTAMENTE questo comando: `mv tests/test_ruoli.py piani/test_ruoli.py`
-  Verifica: `test -f piani/test_ruoli.py && test ! -e tests/test_ruoli.py`
-
-- [x] 4.2.2 Spostare `tests/test_orchestratore.py` in `piani/`
-  File: `tests/test_orchestratore.py`, `piani/test_orchestratore.py`
-  Nota: come 4.2.1, uno spostamento cambia due file, entrambi nel perimetro. Non toccare altri file.
-  Cosa fare: esegui ESATTAMENTE questo comando: `mv tests/test_orchestratore.py piani/test_orchestratore.py`
-  Verifica: `test -f piani/test_orchestratore.py && test ! -e tests/test_orchestratore.py`
-
-- [x] 4.2.3 Il passo 0 della fase in coda rimette i test in `tests/`
-  File: `piani/ruoli.md`
-  Nota: si cambia solo il testo di `piani/ruoli.md` (non si esegue il `mv` che vi viene scritto). Non toccare altri file.
-  Cosa fare: esegui ESATTAMENTE questo comando (copialo così com'è; aggiunge 4 righe subito prima di `- [ ] 1. I ruoli`):
-  ```sh
-  sed -i '/^- \[ \] 1\. I ruoli$/i\
-- [ ] 0. I test della fase al loro posto\
-  File: `piani/test_ruoli.py`, `piani/test_orchestratore.py`, `tests/test_ruoli.py`, `tests/test_orchestratore.py`\
-  Cosa fare: esegui ESATTAMENTE questo comando: `mv piani/test_ruoli.py piani/test_orchestratore.py tests/`\
-  Verifica: `test -f tests/test_ruoli.py \&\& test -f tests/test_orchestratore.py \&\& test ! -e piani/test_ruoli.py \&\& test ! -e piani/test_orchestratore.py`' piani/ruoli.md
-  ```
-  Verifica: `grep -q "mv piani/test_ruoli.py piani/test_orchestratore.py tests/" piani/ruoli.md && awk "/^- \[ \] 0\. I test della fase al loro posto\$/{z=NR; n++} /^- \[ \] 1\. I ruoli\$/{u=NR} END{exit !(n==1 && u==z+4)}" piani/ruoli.md`
-
-- [x] 4.2.4 Controllo: i semafori non sono più rossi
-  File: nessuno
-  Nota: non si scrive nulla; se la verifica fallisce, fermarsi e spiegare (NON scrivere `ciclo/ruoli.py` né `ciclo/orchestratore.py`).
-  Cosa fare: esegui solo la verifica qui sotto.
-  Verifica: `test ! -e tests/test_ruoli.py && test ! -e tests/test_orchestratore.py && test -f piani/test_ruoli.py && test -f piani/test_orchestratore.py && grep -q "mv piani/test_ruoli.py piani/test_orchestratore.py tests/" piani/ruoli.md && { /opt/ai-vm/bin/semafori --base 1b7d0fc49af6; test $? -lt 2; }`
