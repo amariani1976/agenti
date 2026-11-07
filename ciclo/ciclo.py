@@ -1,6 +1,7 @@
 """Ciclo dell'agente: il metodo del runner per un compito solo (verifica, tentativi, perimetro, lezioni)."""
 import os
 import subprocess
+import time
 
 MAX_USCITA = 3000
 MAX_PROMPT = 20000
@@ -100,17 +101,20 @@ def _diff(cartella, file):
     return ''.join(parti)
 
 
-def _prompt(compito, file, verifica, lezioni, errore, fuori):
+def _prompt(compito, file, verifica, lezioni, errore, fuori, revisione_esito=None):
     """Prompt per l'agente: compito, perimetro, verifica, lezioni ed errore del tentativo prima."""
     parti = ['Compito: ' + compito,
              'File che puoi modificare (solo questi): ' + ', '.join(file),
-             'Verifica che deve passare: ' + verifica]
+             'Verifica che deve passare: ' + verifica,
+             'Cambia solo quello che il compito chiede: non riscrivere codice che funziona, non aggiungere altro. Se il compito dice di eseguire un comando, eseguilo invece di modificare il file a mano.']
     if lezioni:
         parti.append('Lezioni dalla KB:\n' + '\n'.join('- ' + l for l in lezioni))
     if fuori:
         parti.append('Il tentativo precedente ha toccato file fuori dal perimetro (annullati): ' + ', '.join(fuori))
     if errore:
         parti.append('Errore della verifica nel tentativo precedente:\n' + errore)
+    if revisione_esito and 'difetti' in revisione_esito and revisione_esito['difetti']:
+        parti.append('Difetti rilevati dalla revisione:\n' + '\n'.join('- ' + d for d in revisione_esito['difetti']))
     return '\n\n'.join(parti)[:MAX_PROMPT]
 
 
@@ -134,7 +138,8 @@ def _controlla(cartella, verifica, file):
             raise ValueError('file fuori dal progetto: ' + repr(nome))
 
 
-def esegui(compito, cartella, verifica, file, tentativi=3, lancia=None, verifica_fn=None, lezioni=None):
+def esegui(compito, cartella, verifica, file, tentativi=3, lancia=None, verifica_fn=None, lezioni=None,
+           verifica_globale=None, revisione=None, tempo_max=1800, orologio=time.time):
     """Affida il compito all'agente fino a `tentativi` volte.
 
     lancia(prompt, cartella) -> (codice, uscita); verifica_fn(comando, cartella) -> (codice, uscita);
@@ -155,8 +160,15 @@ def esegui(compito, cartella, verifica, file, tentativi=3, lancia=None, verifica
     risultato = {'esito': 'non-fatto', 'tentativi': [], 'file': file, 'diff': ''}
     errore = ''
     fuori = []
+    revisione_esito = None
+    inizio_tentativi = orologio()
     for numero in range(1, tentativi + 1):
-        prompt = _prompt(compito, file, verifica, testi, errore, fuori)
+        if orologio() - inizio_tentativi >= tempo_max:
+            risultato['motivo'] = 'tempo massimo del compito superato'
+            for nome in file:
+                _scrivi(cartella, nome, inizio[nome])
+            return risultato
+        prompt = _prompt(compito, file, verifica, testi, errore, fuori, revisione_esito)
         codice_agente, uscita_agente = lancia(prompt, cartella)
         fuori = []
         for nome in sorted(_sporchi(cartella) | set(prima)):
@@ -174,10 +186,44 @@ def esegui(compito, cartella, verifica, file, tentativi=3, lancia=None, verifica
         risultato['tentativi'].append({'numero': numero, 'agente': codice_agente, 'verifica': codice,
                                        'uscita': uscita, 'fuori_perimetro': fuori})
         if codice == 0 and not fuori:
+            if verifica_globale:
+                codice_globale, uscita_globale = verifica_fn(verifica_globale, cartella)
+                uscita_globale = (uscita_globale or '')[-MAX_USCITA:]
+                risultato['tentativi'][-1]['verifica_globale'] = codice_globale
+                risultato['tentativi'][-1]['uscita_globale'] = uscita_globale
+                if codice_globale != 0:
+                    errore = 'verifica globale:\n' + uscita_globale
+                    revisione_esito = None
+                    continue
+            if revisione:
+                revisione_esito = revisione(compito, cartella)
+                if isinstance(revisione_esito, dict) and 'ok' in revisione_esito:
+                    if revisione_esito['ok']:
+                        risultato['esito'] = 'fatto'
+                        risultato['diff'] = _diff(cartella, file)
+                        risultato['revisione'] = revisione_esito
+                        return risultato
+                    else:
+                        errore = 'revisione:\n' + '\n'.join(revisione_esito.get('difetti', []))
+                        revisione_esito = revisione_esito
+                        continue
+                else:
+                    # Revisione senza esito ok: non ferma, ma si continua
+                    risultato['revisione'] = revisione_esito
+                    revisione_esito = revisione_esito
+                    # Non si ritenta, si considera fatto
+                    risultato['esito'] = 'fatto'
+                    risultato['diff'] = _diff(cartella, file)
+                    return risultato
             risultato['esito'] = 'fatto'
             risultato['diff'] = _diff(cartella, file)
             return risultato
         errore = uscita if codice != 0 else ''
+    if risultato['esito'] == 'non-fatto':
+        if errore:
+            risultato['motivo'] = errore
+        elif revisione_esito and isinstance(revisione_esito, dict) and 'difetti' in revisione_esito:
+            risultato['motivo'] = '\n'.join(revisione_esito['difetti'])
     for nome in file:
         _scrivi(cartella, nome, inizio[nome])
     return risultato
