@@ -10,67 +10,56 @@ import risposta
 primo_json = risposta.primo_json
 
 
-def _annulla_cambi(cartella, prima, perimetro):
-    """Annulla i file fuori dal perimetro e restituisce la lista in ordine."""
-    scritture = []
-    # Controlla tutti i file che potrebbero essere stati modificati
-    # prima contiene lo stato di ogni file prima della chiamata
-    
-    # Ottieni tutti i file che potrebbero essere stati modificati
-    # File tracciati da git + file non tracciati che esistevano prima
-    tutti_file = set(_sporchi(cartella)) | set(prima.keys())
-    
-    for nome in sorted(tutti_file):
-        if nome in perimetro:
-            continue
-        
-        try:
-            contenuto_ora = _leggi(cartella, nome)
-        except (OSError, IOError):
-            continue
-        
-        if nome in prima:
-            # File esistente: ripristina il contenuto originale
-            if contenuto_ora != prima[nome]:
-                try:
-                    _scrivi(cartella, nome, prima[nome])
-                except (OSError, IOError):
-                    pass
-                scritture.append(nome)
-        else:
-            # File nuovo: cancellalo se esiste
-            if contenuto_ora is not None:
-                try:
-                    _scrivi(cartella, nome, None)
-                except (OSError, IOError):
-                    pass
-                scritture.append(nome)
-    
-    return scritture
+def _elenco(cartella):
+    """Nomi relativi dei file tracciati e non tracciati (non ignorati), anche in sottocartelle."""
+    nomi = set()
+    for argomenti in (('ls-files', '-z'), ('ls-files', '-z', '--others', '--exclude-standard')):
+        codice, uscita = _git(cartella, *argomenti)
+        if codice == 0:
+            nomi.update(n for n in uscita.split('\0') if n)
+    return sorted(nomi)
 
 
-def _prima_stato(cartella):
-    """Restituisce un dict con il contenuto di ogni file prima della chiamata.
-    Include file tracciati da git e file non tracciati."""
+def _dentro(cartella, nome):
+    """Percorso assoluto del file se sta dentro la cartella, altrimenti None."""
+    base = os.path.realpath(cartella)
+    percorso = os.path.realpath(os.path.join(base, nome))
+    if percorso == base or not percorso.startswith(base + os.sep):
+        return None
+    return percorso
+
+
+def _istantanea(cartella):
+    """Contenuto in byte di ogni file di _elenco: dict nome -> bytes."""
     prima = {}
-    # File tracciati da git
-    codice, tracciati = _git(cartella, 'ls-files')
-    if tracciati.strip():
-        for nome in (n for n in tracciati.strip().split('\n') if n):
-            prima[nome] = _leggi(cartella, nome)
-    # File non tracciati che esistono
-    try:
-        for nome in os.listdir(cartella):
-            if nome in prima:  # Già tracciato
-                continue
-            if os.path.isfile(os.path.join(cartella, nome)):
-                try:
-                    prima[nome] = _leggi(cartella, nome)
-                except (OSError, IOError):
-                    pass
-    except (OSError, IOError):
-        pass
+    for nome in _elenco(cartella):
+        contenuto = _leggi(cartella, nome)
+        if contenuto is not None:
+            prima[nome] = contenuto
     return prima
+
+
+def _ripristina(cartella, prima):
+    """Riporta la cartella all'istantanea; restituisce in ordine i nomi toccati."""
+    toccati = []
+    for nome in sorted(set(prima) | set(_elenco(cartella))):
+        percorso = _dentro(cartella, nome)
+        if percorso is None:
+            continue
+        ora = _leggi(cartella, nome)
+        if nome in prima:
+            if ora == prima[nome]:
+                continue
+            sopra = os.path.dirname(percorso)
+            if not os.path.isdir(sopra):
+                os.makedirs(sopra)
+            with open(percorso, 'wb') as f:
+                f.write(prima[nome])
+            toccati.append(nome)
+        elif ora is not None:
+            os.remove(percorso)
+            toccati.append(nome)
+    return toccati
 
 
 def programmatore(compito, cartella, esegui=esegui, **k):

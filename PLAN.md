@@ -42,7 +42,7 @@ Il collaudo ha trovato difetti che i test della fase non coprivano: `agente orch
   File: `ciclo/risposta.py`, `ciclo/ruoli.py`, `ciclo/orchestratore.py`
   Cosa fare: nuovo `ciclo/risposta.py` con `primo_json(testo)`: `None` se il testo e' vuoto o `None`; se c'e' un blocco ```json … ``` usa il suo contenuto; poi prova `json.JSONDecoder().raw_decode(testo, i)` da ogni posizione `i` in cui c'e' `{`, in ordine, e restituisce il primo risultato che e' un `dict`; altrimenti `None`. In `ruoli.py` e `orchestratore.py` togliere `_json_da_risposta` e usare `from risposta import primo_json` (i moduli si importano con `ciclo/` in `sys.path`, come gia' fa `from ciclo import …`).
   Verifica: `cd piani && timeout 120 python3 -m unittest test_risposta test_ruoli test_orchestratore`
-- [ ] 6.1 Funzioni di appoggio per la sola lettura (`_elenco`, `_istantanea`, `_ripristina`)
+- [x] 6.1 Funzioni di appoggio per la sola lettura (`_elenco`, `_istantanea`, `_ripristina`)
   File: `ciclo/ruoli.py`
   Cosa fare: eseguire dalla radice del progetto lo script qui sotto, così com'è, senza riscriverlo a mano. Toglie `_annulla_cambi` e `_prima_stato` e mette al loro posto `_elenco`, `_dentro`, `_istantanea`, `_ripristina` (`revisore` e `ricercatore` si sistemano nel passo 6.2: fino ad allora `tests/test_ruoli.py` fallisce, è previsto).
   Esegui:
