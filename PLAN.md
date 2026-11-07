@@ -1,44 +1,28 @@
 ---
-stato: completato
+stato: bozza
 ramo: ai/agente-ciclo
 modello: esecutore
-verifica_globale: timeout 300 python3 -m unittest tests/test_agente.py tests/test_ciclo.py tests/test_esecuzione.py tests/test_orchestratore.py tests/test_agente_catena.py tests/test_ciclo_qualita.py
-accettazione: cd piani && timeout 200 python3 -m unittest test_revisore_affidabile
-correzioni_semafori: 1
-aiuti: 1
-collaudi: 1
-collaudo: superato
+verifica_globale: timeout 300 python3 -m unittest tests/test_agente.py tests/test_ciclo.py tests/test_esecuzione.py tests/test_orchestratore.py tests/test_agente_catena.py tests/test_ciclo_qualita.py tests/test_ruoli.py
+accettazione: cd piani && timeout 200 python3 -m unittest test_revisore_tre_letture
 ---
-# Piano: un revisore affidabile
+# Piano: tre letture del revisore, ciascuna con il suo compito
 
 ## Contesto
-Sulla stessa modifica il revisore una volta trova un difetto vero e una volta no. Due rimedi: il revisore elenca le richieste del compito una per una e dice per ciascuna se il diff la soddisfa; la revisione si legge due volte ed è ok solo se lo sono entrambe. Il test `piani/test_revisore_affidabile.py` è già pronto e non si modifica. Python 3.6, sola libreria standard, niente f-string. Ogni comando con `timeout`.
+Due letture uguali sbagliano allo stesso modo: sul banco sono passati lavori con un errore che si rompe a runtime (`peek` su un file gzip) o con cambi oltre il richiesto. Le tre letture guardano ciascuna una cosa diversa; basta un difetto in una per non consegnare. Il test `piani/test_revisore_tre_letture.py` è già pronto e non si modifica; `tests/test_revisore_affidabile.py` va aggiornato solo dove contava due letture. Python 3.6, sola libreria standard, niente f-string. Ogni comando con `timeout`.
 
 ## Passi
-- [x] 1. Richieste una per una e due letture
+- [ ] 1. Tre letture con tre compiti
   File: `ciclo/ruoli.py`
-  Cosa fare: in `revisore` il prompt chiede di elencare le richieste del compito una per una e di rispondere SOLO con `{"richieste": [{"richiesta": testo, "fatta": bool}], "ok": bool, "difetti": [testi]}`, con `ok` vero solo se tutte le richieste sono fatte e non ci sono difetti. La funzione chiama `lancia` due volte, con lo stesso prompt, ripristinando la cartella dopo ciascuna come fa oggi. Una lettura illeggibile non conta; se entrambe lo sono, esito `non-fatto` come oggi. `ok` è vero solo se ogni lettura leggibile ha `ok` vero e nessuna richiesta con `fatta` falso; i difetti sono l'unione, senza doppioni, dei `difetti` e delle richieste non fatte («richiesta non fatta: …»). Il resto del risultato resta com'è (`esito`, `scritture_annullate` di entrambe le letture).
-  Verifica: `cd piani && timeout 200 python3 -m unittest test_revisore_affidabile && cd .. && timeout 200 python3 -m unittest tests/test_ruoli.py`
-- [x] 2. Il test al suo posto
+  Cosa fare: in `revisore` la parte comune del prompt resta (compito, diff, regole di scrittura, funzioni esistenti, forma del JSON); le letture diventano tre, ciascuna con una frase propria in testa: (1) «Controlla che il compito sia fatto tutto: elenca le richieste una per una e di' per ciascuna se il diff la soddisfa.» (2) «Cerca gli errori che si vedono solo quando il codice gira: metodi o attributi che non esistono sugli oggetti usati, file o flussi non chiusi, casi limite (vuoto, assente, errore), eccezioni non gestite.» (3) «Cerca i cambi oltre quello che il compito chiede: righe riscritte, traduzioni, commenti o nomi cambiati senza che il compito lo chieda; se il compito diceva di eseguire un comando, controlla che il risultato sia quello del comando.» Le regole di unione restano quelle di oggi: una lettura illeggibile non conta, `ok` solo se tutte le leggibili sono ok e senza richieste non fatte, difetti uniti senza doppioni.
+  Verifica: `cd piani && timeout 200 python3 -m unittest test_revisore_tre_letture`
+- [ ] 2. Il test delle due letture conta tre letture
   File: `tests/test_revisore_affidabile.py`
+  Cosa fare: dove i test danno due risposte o contano due prompt, aggiungi una terza risposta uguale alla seconda e conta tre prompt. Non cambiare cosa si controlla.
+  Verifica: `timeout 200 python3 -m unittest tests/test_revisore_affidabile.py tests/test_ruoli.py`
+- [ ] 3. Il test al suo posto
+  File: `tests/test_revisore_tre_letture.py`
   Esegui:
   ```bash
-mv piani/test_revisore_affidabile.py tests/
+mv piani/test_revisore_tre_letture.py tests/
   ```
-  Verifica: `test -f tests/test_revisore_affidabile.py && timeout 200 python3 -m unittest tests/test_revisore_affidabile.py`
-
-- [x] 3.1 Il test dell'orchestratore conta le due letture del revisore
-  File: `tests/test_agente_orchestratore.py`
-  Cosa fare: l'unico ❌ dei semafori è `test_da_capo_a_fondo`. Non è un difetto del codice: dal passo 1 il revisore
-  chiama `lancia` due volte, quindi il finto esegui-passo viene chiamato 3 volte (piano + due letture) e non 2.
-  Si aggiorna solo il numero atteso alla riga 63. Non toccare `ciclo/`, `bin/agente`, `controlli.toml` né i file
-  segnalati dai ⚠️ (sono avvisi su file fuori dal piano: i token dei test sono già finti).
-  Esegui:
-  ```bash
-sed -i "63s/\] \* 2)/] * 3)  # piano + due letture del revisore/" tests/test_agente_orchestratore.py
-  ```
-  Verifica: `grep -q "esecutore-pensiero'\] \* 3)" tests/test_agente_orchestratore.py && timeout 120 python3 -m unittest tests/test_agente_orchestratore.py`
-- [x] 3.2 Semafori di nuovo verdi
-  File: nessuno (solo verifica)
-  Cosa fare: niente da modificare; si controlla che la suite completa passi e che i semafori non siano rossi.
-  Verifica: `timeout 600 python3 -m unittest discover -s tests -p 'test_*.py' && { /opt/ai-vm/bin/semafori --base 1b7d0fc49af6; test $? -lt 2; }`
+  Verifica: `test -f tests/test_revisore_tre_letture.py && timeout 200 python3 -m unittest tests/test_revisore_tre_letture.py`
