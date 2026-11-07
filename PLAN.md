@@ -1,5 +1,5 @@
 ---
-stato: in-esecuzione
+stato: bloccato
 ramo: ai/agente-ciclo
 modello: esecutore
 verifica_globale: timeout 300 sh -c 'python3 -m unittest tests/test_agente.py tests/test_coda.py && python3 -m unittest tests/test_misura.py'
@@ -207,7 +207,7 @@ FINE_CICLO
   ```
   Verifica: `grep -q "open(os.environ.get('CODA_MISURE', REGISTRO), 'a'" coda/misura.py && cd tests && timeout 120 python3 -m unittest test_coda test_misura`
 
-- [ ] 4.2.1 Spostare `tests/test_ruoli.py` in `piani/`
+- [!] 4.2.1 Spostare `tests/test_ruoli.py` in `piani/`
   File: `tests/test_ruoli.py`, `piani/test_ruoli.py`
   Nota: uno spostamento cambia DUE file (quello cancellato e quello nuovo): entrambi sono nel perimetro. Non toccare il contenuto del file e non toccare altri file.
   Cosa fare: esegui ESATTAMENTE questo comando: `mv tests/test_ruoli.py piani/test_ruoli.py`
