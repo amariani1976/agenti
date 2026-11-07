@@ -42,7 +42,7 @@ sed -i "s/'compito': compito\['compito'\]}/'compito': compito}/" bin/agente
 mv piani/test_orchestratore_revisione_compito.py tests/test_orchestratore_revisione_compito.py
   ```
   Verifica: `test -f tests/test_orchestratore_revisione_compito.py && test ! -e piani/test_orchestratore_revisione_compito.py && grep -q test_la_revisione_accetta_il_compito_come_testo tests/test_orchestratore_revisione_compito.py && timeout 60 python3 -m unittest tests/test_orchestratore_revisione_compito.py`
-- [ ] 4.2 Via il doppione in piani/
+- [x] 4.2 Via il doppione in piani/
   File: `piani/test_orchestratore_revisione.py`
   Perché: il passo 2 l'ha copiato invece di spostarlo; il test `test_il_programmatore_dell_orchestratore_ha_la_revisione` resta identico in `tests/test_orchestratore_revisione.py`, qui si toglie solo il doppione.
   Esegui:
