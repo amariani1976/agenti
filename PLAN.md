@@ -38,7 +38,7 @@ sed -i "s/\['agente demo esecutore-pensiero'\] \* 3)  # piano + due letture del 
   ```
   Verifica: `grep -q "\* 4)  # piano + tre letture del revisore" tests/test_agente_orchestratore.py && timeout 200 python3 -m unittest tests.test_agente_orchestratore`
 
-- [ ] 4.2 Semafori di nuovo non rossi
+- [x] 4.2 Semafori di nuovo non rossi
   File: nessuno (solo controllo)
   Cosa fare: eseguire i semafori; se escono rossi fermarsi e spiegare quale controllo è ❌.
   Verifica: `timeout 300 /opt/ai-vm/bin/semafori --base 1b7d0fc49af6; test $? -lt 2`
