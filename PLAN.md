@@ -1,5 +1,5 @@
 ---
-stato: in-esecuzione
+stato: completato
 ramo: ai/agente-ciclo
 modello: esecutore
 verifica_globale: timeout 300 python3 -m unittest tests/test_agente.py tests/test_ciclo.py tests/test_esecuzione.py tests/test_ruoli.py tests/test_orchestratore.py tests/test_agente_catena.py
@@ -7,6 +7,7 @@ accettazione: cd piani && timeout 200 python3 -m unittest test_ciclo_qualita
 correzioni_semafori: 1
 aiuti: 1
 collaudi: 1
+collaudo: superato
 ---
 # Piano: il ciclo consegna solo lavoro fatto bene
 
