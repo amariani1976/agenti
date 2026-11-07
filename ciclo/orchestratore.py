@@ -15,11 +15,12 @@ def _convalida_piano(piano, agenti, max_compiti):
     Un piano valido ha:
     - 1 <= len(compiti) <= max_compiti
     - Ogni compito ha agente fra quelli dati
-    - Ogni compito ha compito non vuoto
-    - Per il programmatore: file relativi senza .. e verifica non vuota
+    - Ogni compito ha compito come stringa non vuota
+    - Per il programmatore: file come lista non vuota di stringhe relative, verifica stringa non vuota
+    - Nessun path traversal (..), nessun backslash, nessun path assoluto
     """
     if not isinstance(piano, dict):
-        return False, 'piano non è un oggetto JSON'
+        return False, 'il piano non è un oggetto'
     
     compiti = piano.get('compiti')
     if not isinstance(compiti, list):
@@ -36,11 +37,11 @@ def _convalida_piano(piano, agenti, max_compiti):
             return False, 'compito ' + str(i) + ' non è un oggetto JSON'
         
         agente = compito.get('agente')
-        if agente not in agenti:
+        if not isinstance(agente, str) or agente not in agenti:
             return False, 'agente non ammesso: ' + str(agente)
         
         compito_str = compito.get('compito')
-        if not compito_str or not compito_str.strip():
+        if not isinstance(compito_str, str) or not compito_str.strip():
             return False, 'compito vuoto'
         
         # Per il programmatore: controlla file e verifica
@@ -48,18 +49,24 @@ def _convalida_piano(piano, agenti, max_compiti):
             file_param = compito.get('file')
             verifica = compito.get('verifica')
             
-            if not file_param or not isinstance(file_param, list):
+            # file deve essere una lista non vuota di stringhe
+            if not isinstance(file_param, list) or len(file_param) == 0:
                 return False, 'programmatore senza file'
             
             for f in file_param:
-                if not f or not isinstance(f, str):
+                if not isinstance(f, str):
                     return False, 'file non valido: ' + repr(f)
+                if '\\\\' in f:
+                    return False, 'file contiene backslash: ' + f
                 if f.startswith('/'):
                     return False, 'file assoluto: ' + f
-                if '..' in f:
+                # Controlla split('/') per ..
+                parts = f.split('/')
+                if '..' in parts:
                     return False, 'path traversal nel file: ' + f
             
-            if not verifica or not verifica.strip():
+            # verifica deve essere una stringa non vuota
+            if not isinstance(verifica, str) or not verifica.strip():
                 return False, 'programmatore senza verifica'
     
     return True, None
@@ -121,9 +128,9 @@ def esegui(richiesta, cartella, chiedi, agenti, avvisa=None, max_compiti=6):
     # Convalida il piano
     valido, motivo = _convalida_piano(piano, list(agenti.keys()), max_compiti)
     
-    # Se non valido, chiede una volta con il motivo
+    # Se non valido, chiede una volta con il motivo (prompt completo + riga con motivo)
     if not valido:
-        risposta2 = chiedi('piano non valido: ' + motivo)
+        risposta2 = chiedi(prompt + 'piano non valido: ' + motivo + '; rispondi di nuovo con il JSON.')
         piano = primo_json(risposta2)
         valido, motivo = _convalida_piano(piano, list(agenti.keys()), max_compiti)
     
@@ -172,16 +179,14 @@ def esegui(richiesta, cartella, chiedi, agenti, avvisa=None, max_compiti=6):
                 esito_correzione = _esegui_compito(agenti, nuovo_compito, cartella)
                 risultati.append(esito_correzione)
                 
-                # Il revisore ripassa
-                # Crea un nuovo compito per il revisore (usa lo stesso file)
-                compito_revisore = {
-                    'agente': 'revisore',
-                    'compito': 'verifica di nuovo',
-                    'file': nuovo_compito.get('file', []),
-                    'verifica': nuovo_compito.get('verifica', '')
-                }
+                # Se la correzione non è fatta, esito aiuto
+                if esito_correzione.get('esito') != 'fatto':
+                    if avvisa:
+                        avvisa('aiuto', 'richiesta: ' + richiesta + ', motivo: ' + ', '.join(difetti))
+                    return {'esito': 'aiuto', 'piano': compiti, 'risultati': risultati, 'motivo': ', '.join(difetti)}
                 
-                esito_revisore = _esegui_compito(agenti, compito_revisore, cartella)
+                # Il revisore ripassa (lo stesso compito del piano)
+                esito_revisore = _esegui_compito(agenti, compito, cartella)
                 risultati.append(esito_revisore)
                 
                 # Se dopo la correzione ci sono ancora difetti, esito aiuto
@@ -190,6 +195,12 @@ def esegui(richiesta, cartella, chiedi, agenti, avvisa=None, max_compiti=6):
                     if avvisa:
                         avvisa('aiuto', 'richiesta: ' + richiesta + ', motivo: ' + ', '.join(motivo_difetti))
                     return {'esito': 'aiuto', 'piano': compiti, 'risultati': risultati, 'motivo': ', '.join(motivo_difetti)}
+            else:
+                # Nessun programmatore prima del revisore con difetti -> aiuto
+                difetti = esito.get('difetti', ['difetti senza programmatore'])
+                if avvisa:
+                    avvisa('aiuto', 'richiesta: ' + richiesta + ', motivo: ' + ', '.join(difetti))
+                return {'esito': 'aiuto', 'piano': compiti, 'risultati': risultati, 'motivo': ', '.join(difetti)}
             break
     
     # Tutto finito, esito fatto

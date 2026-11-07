@@ -163,7 +163,7 @@ EOF
   ```
   Verifica: `cd piani && timeout 120 python3 -m unittest test_ruoli_lettura test_ruoli test_orchestratore && cd .. && ! grep -q "_annulla_cambi\|_prima_stato" ciclo/ruoli.py`
 
-- [ ] 7. Orchestratore: casi mancanti
+- [x] 7. Orchestratore: casi mancanti
   File: `ciclo/orchestratore.py`
   Cosa fare: (a) la seconda richiesta al modello e' il prompt completo della prima piu' una riga «piano non valido: <motivo>; rispondi di nuovo con il JSON.»; (b) `_convalida_piano` non va mai in errore: `compito` e `verifica` devono essere stringhe non vuote, `file` una lista non vuota di stringhe relative, senza `\\`, senza componenti `..` (controllare `f.split('/')`); con risposta non `dict` motivo «il piano non è un oggetto»; (c) i compiti si eseguono in ordine e la correzione avviene subito quando un revisore restituisce `ok` falso: se prima non c'e' stato un programmatore → `aiuto` con i difetti nel motivo; altrimenti il programmatore rifà l'ultimo compito del programmatore con i difetti aggiunti al testo del compito; se questo esito non e' `fatto` → `aiuto`; poi lo stesso compito del revisore (lo stesso dict del piano) ripassa; se l'esito non e' `fatto` o `ok` e' ancora falso → `aiuto` con i difetti; altrimenti si prosegue con i compiti successivi; un secondo revisore con `ok` falso dopo la correzione gia' fatta → `aiuto`. `avvisa` riceve sempre la richiesta, e in caso di `aiuto` il motivo con i difetti.
   Verifica: `cd piani && timeout 120 python3 -m unittest test_orchestratore_casi test_orchestratore`
