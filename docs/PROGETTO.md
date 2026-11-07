@@ -75,6 +75,18 @@ Chi li usa: Claude (Bash) e Hermes (skill `agente` da Telegram) chiamano di soli
 
 **Avvisi (richiesta dell'utente, 2026-11-07):** è l'orchestratore a svegliare Claude, senza timer: a compito finito e quando ha bisogno di aiuto (un agente esaurisce i tentativi, un esito non torna, una scelta non è sua) scrive una riga sulla FIFO `~/.local/state/ai-vm/orchestratore.avviso` con `lib/avviso.py` di ai-vm (`fatto`, `aiuto` o `fallito`, il compito e il motivo); Claude la ascolta con `progetto ascolta orchestratore`. Se il compito l'ha dato Hermes, lo stesso avviso va anche su Telegram.
 
+## 4.2 Banco, soglie e rischi noti (2026-11-07)
+
+**Banco:** compiti veri dalla storia di git dei progetti (commit «AI-VM passo:», con il `PLAN.md` del commit padre: stato di partenza, compito, file, verifica), più compiti impossibili in cui l'agente deve chiedere aiuto. Campione da 30 per le prove intermedie, banco intero per il rilascio. **Soglie di rilascio:** almeno il 95% riusciti; zero uscite dal perimetro arrivate in fondo; compiti impossibili sempre con richiesta d'aiuto. Prima di costruire si misura la linea di base sul campione.
+
+**Rischi noti, detti prima (richiesta dell'utente: niente scoperte dell'ultimo minuto):**
+1. Il limite di capacità del modello: il ciclo non aggiunge capacità; il 95% potrebbe non essere raggiungibile sui compiti difficili. Si saprà dalla linea di base.
+2. La GPU regge un modello alla volta: il banco ferma il runner per ore.
+3. Ricerca su internet via SearXNG ancora da costruire.
+4. La modifica dei pesi probabilmente non servirà: finora nessun ciclo misurato.
+5. Icinga-Network resta in pausa finché gli agenti non superano il banco.
+6. Consumo di token della sessione unica di Claude.
+
 ## 5. Esecutore dei piani
 
 Oggi `esegui-passo` (root, `/opt/ai-vm/libexec`) chiama Hermes dell'utente `esecutore`. Si sostituisce quella sola riga
