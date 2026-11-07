@@ -15,7 +15,7 @@ Dal comando diretto il programmatore passa dal revisore; dall'orchestratore no, 
   File: `bin/agente`
   Cosa fare: nella riga `'programmatore': lambda c, d: ruoli.programmatore(...)` di `_orchestratore` aggiungi `revisione=lambda compito, cartella: ruoli.revisore({'agente': 'revisore', 'compito': compito}, cartella, e.lancia)`. Nient'altro.
   Verifica: `cd piani && timeout 60 python3 -m unittest test_orchestratore_revisione && cd .. && timeout 200 python3 -m unittest tests/test_agente_catena.py tests/test_orchestratore.py`
-- [ ] 2. Il test al suo posto
+- [x] 2. Il test al suo posto
   File: `tests/test_orchestratore_revisione.py`
   Esegui:
   ```bash
