@@ -77,6 +77,25 @@ def programmatore(compito, cartella, esegui=esegui, **k):
     )
 
 
+def _elenco_funzioni(cartella):
+    """Elenco di funzioni e classi esistenti (max 200 righe) trovate con git grep."""
+    import subprocess
+    risultato = []
+    try:
+        stdout, _ = subprocess.Popen(
+            ['git', '-C', cartella, 'grep', '-n',
+             '^(def |class |export function|export const|export class)'],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE
+        ).communicate()
+        for riga in stdout.decode('utf-8').split('\n'):
+            if riga and len(risultato) < 200:
+                risultato.append(riga)
+    except Exception:
+        pass
+    return '\n'.join(risultato[:200])
+
+
 def revisore(compito, cartella, lancia):
     """Revisore: chiede un giudizio in JSON e annulla ogni scrittura fatta durante la chiamata."""
     prima = _istantanea(cartella)
@@ -84,6 +103,13 @@ def revisore(compito, cartella, lancia):
     diff = _diff(cartella, sorted(_sporchi(cartella)))
     if diff:
         prompt += '\n\nDiff della cartella:\n' + diff
+    prompt += '\n\nRegole di scrittura (segnala come difetti):'
+    prompt += '\n- Funzioni e classi nelle librerie vanno richiamate dove servono, non copiate'
+    prompt += '\n- Si riusa ciò che esiste invece di copiarlo'
+    prompt += '\n- Nessun codice duplicato'
+    prompt += '\n- Una funzione fa una cosa sola'
+    prompt += '\n\nFunzioni e classi esistenti nel progetto:'
+    prompt += '\n' + _elenco_funzioni(cartella)
     prompt += '\n\nRispondi SOLO con un JSON: {"ok": bool, "difetti": [stringhe]}'
     try:
         codice, uscita = lancia(prompt, cartella)
