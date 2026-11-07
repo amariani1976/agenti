@@ -5,7 +5,7 @@ modello: esecutore
 verifica_globale: timeout 300 sh -c 'python3 -m unittest tests/test_agente.py tests/test_coda.py && python3 -m unittest tests/test_misura.py'
 accettazione: timeout 200 python3 -m unittest tests/test_ciclo.py tests/test_esecuzione.py
 spezzati: 2
-aiuti: 3
+aiuti: 4
 correzioni_semafori: 1
 ---
 # Piano: un agente unico che usa il modello locale nel modo migliore
@@ -207,7 +207,7 @@ FINE_CICLO
   ```
   Verifica: `grep -q "open(os.environ.get('CODA_MISURE', REGISTRO), 'a'" coda/misura.py && cd tests && timeout 120 python3 -m unittest test_coda test_misura`
 
-- [ ] 4.2.1 Spostare `tests/test_ruoli.py` (spezzato)
+- [!] 4.2.1 Spostare `tests/test_ruoli.py` (spezzato)
   File: `piani/test_ruoli.py`
   Cosa fare: `mv tests/test_ruoli.py piani/test_ruoli.py`
   Verifica: `test -f piani/test_ruoli.py && test ! -e tests/test_ruoli.py`
