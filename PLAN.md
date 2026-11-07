@@ -29,41 +29,66 @@ mv piani/test_ciclo_qualita.py tests/
   ```
   Verifica: `test -f tests/test_ciclo_qualita.py && timeout 200 python3 -m unittest tests/test_ciclo_qualita.py`
 
-- [!] 4. Correzione dei semafori rossi (giro 1)
-  File: `tests/test_cliente.py`, `tests/test_kb.py`, `tests/test_servizio.py`
-  Cosa fare: a fine piano le regole di verifica del progetto (semafori) sono ROSSE. Capisci la causa di ogni
-  controllo segnato con ❌ qui sotto e correggila nel codice, senza spegnere controlli, saltare test o cambiare
-  `controlli.toml`. I ⚠️ sono avvisi: correggili solo se riguardano i file del piano.
-  ## Semafori: 🔴 ROSSO
-  
-  - Base `1b7d0fc49af6`; controlli del progetto: `controlli.toml`.
-  
-  - ✅ **verifica generale del piano** (0.9 s)
-    - Ran 33 tests in 0.824s
-    - OK
-  - ✅ **test finali della fase** (0.2 s)
-    - Ran 6 tests in 0.150s
-    - OK
-  - ✅ **segreti**
-  - ✅ **conflitti**
-  - ✅ **file-spuri**
-  - ✅ **test-saltati**
-  - ✅ **test-cancellati**
-  - ✅ **todo**
-  - ✅ **file-grandi**
-  - ⚠️ **file-monolitici** — File di codice oltre 500 righe modificati: dividere in moduli piccoli
-    - web/web.py (545 righe)
-  - ✅ **codice-ripetuto**
-  - ⚠️ **segreti-nei-test** — Valori simili a segreti nei file di test (controllare che siano finti)
-    - tests/test_cliente.py:15: …TOKEN = 'tok…
-    - tests/test_cliente.py:62: …TOKEN='sbagl…
-    - tests/test_kb.py:53: …-----BEGIN O…
-    - tests/test_servizio.py:19: …TOKEN = 'tok…
-    - tests/test_servizio.py:71: …token='sbagl…
-  - ❌ **Test** (21.9 s)
-    - uscita 1
-    - FAIL: test_da_capo_a_fondo (test_agente_orchestratore.Orchestratore.test_da_capo_a_fondo)
-    - Ran 141 tests in 21.784s
-    - FAILED (failures=1)
-  - ✅ **Solo libreria standard di Python**
-  Verifica: `/opt/ai-vm/bin/semafori --base 1b7d0fc49af6; test $? -lt 2`
+- [ ] 4.1 Revisore e verifica generale nel percorso giusto di `bin/agente`
+  File: `bin/agente`
+  Cosa fare: il passo 2 ha messo `revisione_fn` dentro `_orchestratore`, dove `args` non esiste (NameError: rompe
+  `tests/test_agente_orchestratore.py`), e non ha collegato nulla a `ciclo.esegui`. Esegui lo script qui sotto
+  così com'è, dalla cartella del progetto: toglie il collegamento sbagliato da `_orchestratore` e passa
+  `verifica_globale` e `revisione` a `ciclo.esegui` in `_esegui_con_verifica`. Non modificare il file a mano.
+  Esegui:
+  ```bash
+python3 - <<'EOF'
+import io
+p = 'bin/agente'
+s = io.open(p, encoding='utf-8').read()
+vecchio = """    # Se non c'è --senza-revisione, aggiungi la funzione revisione con lo stesso Esecuzione del programmatore
+    revisione_fn = None
+    if not args.senza_revisione:
+        revisione_fn = lambda compito, cartella: ruoli.revisore({'agente': 'revisore', 'compito': compito}, cartella, e.lancia)
+    
+"""
+assert s.count(vecchio) == 1
+s = s.replace(vecchio, '')
+assert s.count("        revisione=revisione_fn,\n        max_compiti=6\n") == 1
+s = s.replace("        revisione=revisione_fn,\n        max_compiti=6\n", "        max_compiti=6\n")
+a = "def _esegui_con_verifica(file_arg, verifica_arg, tentativi_arg, nome, compito, cartella, radice, pi):"
+assert s.count(a) == 1
+s = s.replace(a, "def _esegui_con_verifica(file_arg, verifica_arg, tentativi_arg, nome, compito, cartella, radice, pi,\n                         verifica_globale=None, senza_revisione=False):")
+b = """    # Esegui ciclo.esegui con tentativi da 1 a 5
+"""
+assert s.count(b) == 1
+s = s.replace(b, """    # Revisore con lo stesso Esecuzione del programmatore, salvo --senza-revisione
+    revisione_fn = None
+    if not senza_revisione:
+        sys.path.insert(0, moduli_path)
+        import ruoli
+        revisione_fn = lambda c, d: ruoli.revisore({'agente': 'revisore', 'compito': c}, d, esecuzione.lancia)
+
+""" + b)
+c = """        lezioni=esecuzione.lezioni
+    )
+"""
+assert s.count(c) == 1
+s = s.replace(c, """        lezioni=esecuzione.lezioni,
+        verifica_globale=verifica_globale,
+        revisione=revisione_fn
+    )
+""")
+d = """            os.environ.get('AGENTE_PI', DEFAULT_PI)
+        )
+"""
+assert s.count(d) == 1
+s = s.replace(d, """            os.environ.get('AGENTE_PI', DEFAULT_PI),
+            verifica_globale=args.verifica_globale,
+            senza_revisione=args.senza_revisione
+        )
+""")
+io.open(p, 'w', encoding='utf-8').write(s)
+print('ok')
+EOF
+  ```
+  Verifica: `timeout 200 python3 -m unittest tests/test_agente_orchestratore.py tests/test_agente_catena.py tests/test_agente.py tests/test_agente_collegamento.py && grep -q "verifica_globale=args.verifica_globale" bin/agente && ! grep -q "if not args.senza_revisione" bin/agente`
+- [ ] 4.2 Semafori di nuovo non rossi
+  File: nessuno (solo controllo)
+  Cosa fare: esegui la verifica; non modificare file. Se fallisce, fermati e riporta l'uscita.
+  Verifica: `timeout 280 /opt/ai-vm/bin/semafori --base 1b7d0fc49af6; test $? -lt 2`
