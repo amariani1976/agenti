@@ -37,17 +37,26 @@ def _annulla_cambi(cartella, prima, perimetro):
         if nome in perimetro:
             continue
         
-        contenuto_ora = _leggi(cartella, nome)
+        try:
+            contenuto_ora = _leggi(cartella, nome)
+        except (OSError, IOError):
+            continue
         
         if nome in prima:
             # File esistente: ripristina il contenuto originale
             if contenuto_ora != prima[nome]:
-                _scrivi(cartella, nome, prima[nome])
+                try:
+                    _scrivi(cartella, nome, prima[nome])
+                except (OSError, IOError):
+                    pass
                 scritture.append(nome)
         else:
             # File nuovo: cancellalo se esiste
             if contenuto_ora is not None:
-                _scrivi(cartella, nome, None)
+                try:
+                    _scrivi(cartella, nome, None)
+                except (OSError, IOError):
+                    pass
                 scritture.append(nome)
     
     return scritture
@@ -60,7 +69,7 @@ def _prima_stato(cartella):
     # File tracciati da git
     codice, tracciati = _git(cartella, 'ls-files')
     if tracciati.strip():
-        for nome in tracciati.strip().split('\n'):
+        for nome in (n for n in tracciati.strip().split('\n') if n):
             prima[nome] = _leggi(cartella, nome)
     # File non tracciati che esistono
     try:
@@ -68,7 +77,10 @@ def _prima_stato(cartella):
             if nome in prima:  # Già tracciato
                 continue
             if os.path.isfile(os.path.join(cartella, nome)):
-                prima[nome] = _leggi(cartella, nome)
+                try:
+                    prima[nome] = _leggi(cartella, nome)
+                except (OSError, IOError):
+                    pass
     except (OSError, IOError):
         pass
     return prima
@@ -107,7 +119,8 @@ def revisore(compito, cartella, lancia):
     prima = _prima_stato(cartella)
     
     # Ottieni i file nel perimetro (se presenti nel compito)
-    perimetro = set(compito.get('file', []))
+    file_param = compito.get('file')
+    perimetro = set(file_param) if file_param else set()
     
     # Crea il prompt con il compito e il diff
     prompt = 'Compito: ' + compito['compito']
@@ -120,7 +133,10 @@ def revisore(compito, cartella, lancia):
     if not file_per_diff:
         codice, tracciati = _git(cartella, 'ls-files')
         if tracciati.strip():
-            file_per_diff = tracciati.strip().split('\n')
+            file_per_diff = [n for n in tracciati.strip().split('\n') if n]
+    
+    # Filtra nomi di file invalidi (vuoti, assoluti, con path traversal)
+    file_per_diff = [n for n in file_per_diff if n and not n.startswith('/') and '..' not in n]
     
     diff = _diff(cartella, file_per_diff)
     if diff:
@@ -128,8 +144,13 @@ def revisore(compito, cartella, lancia):
     
     prompt += '\n\nRispondi SOLO con un JSON: {"ok": bool, "difetti": [stringhe]}'
     
-    # Lancia il modello
-    codice, uscita = lancia(prompt, cartella)
+    # Lancia il modello con gestione eccezioni
+    try:
+        codice, uscita = lancia(prompt, cartella)
+    except Exception as e:
+        # Annulla i cambiamenti anche in caso di errore
+        _annulla_cambi(cartella, prima, perimetro)
+        return {'esito': 'non-fatto', 'motivo': 'eccezione durante la chiamata: ' + str(e)}
     
     # Annulla i cambiamenti fuori dal perimetro
     scritture_annullate = _annulla_cambi(cartella, prima, perimetro)
@@ -168,19 +189,30 @@ def ricercatore(compito, cartella, lancia):
     prima = _prima_stato(cartella)
     
     # Ottieni i file nel perimetro (se presenti nel compito)
-    perimetro = set(compito.get('file', []))
+    file_param = compito.get('file')
+    perimetro = set(file_param) if file_param else set()
     
     # Crea il prompt per la ricerca KB
     prompt_kb = 'Compito: ' + compito['compito'] + '\n\nCerca nella Knowledge Base e fornisci una sintesi.'
     
-    # Lancia la ricerca KB
-    codice_kb, uscita_kb = lancia(prompt_kb, cartella)
+    # Lancia la ricerca KB con gestione eccezioni
+    try:
+        codice_kb, uscita_kb = lancia(prompt_kb, cartella)
+    except Exception as e:
+        # Annulla i cambiamenti anche in caso di errore
+        _annulla_cambi(cartella, prima, perimetro)
+        return {'esito': 'non-fatto', 'motivo': 'eccezione durante la ricerca KB: ' + str(e)}
     
     # Crea il prompt per la ricerca web
     prompt_web = 'Compito: ' + compito['compito'] + '\n\nUsa la skill web per cercare e fornisci una sintesi.'
     
-    # Lancia la ricerca web
-    codice_web, uscita_web = lancia(prompt_web, cartella)
+    # Lancia la ricerca web con gestione eccezioni
+    try:
+        codice_web, uscita_web = lancia(prompt_web, cartella)
+    except Exception as e:
+        # Annulla i cambiamenti anche in caso di errore
+        _annulla_cambi(cartella, prima, perimetro)
+        return {'esito': 'non-fatto', 'motivo': 'eccezione durante la ricerca web: ' + str(e)}
     
     # Annulla i cambiamenti fuori dal perimetro
     scritture_annullate = _annulla_cambi(cartella, prima, perimetro)
