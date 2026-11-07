@@ -5,6 +5,7 @@ modello: esecutore
 verifica_globale: timeout 200 python3 -m unittest tests/test_agente.py tests/test_coda.py tests/test_misura.py tests/test_ciclo.py tests/test_esecuzione.py
 accettazione: cd piani && timeout 200 python3 -m unittest test_ruoli test_orchestratore
 collaudi: 1
+spezzati: 1
 ---
 # Piano: ruoli e orchestratore
 
@@ -40,10 +41,31 @@ Il collaudo ha trovato difetti che i test della fase non coprivano: `agente orch
   File: `ciclo/risposta.py`, `ciclo/ruoli.py`, `ciclo/orchestratore.py`
   Cosa fare: nuovo `ciclo/risposta.py` con `primo_json(testo)`: `None` se il testo e' vuoto o `None`; se c'e' un blocco ```json … ``` usa il suo contenuto; poi prova `json.JSONDecoder().raw_decode(testo, i)` da ogni posizione `i` in cui c'e' `{`, in ordine, e restituisce il primo risultato che e' un `dict`; altrimenti `None`. In `ruoli.py` e `orchestratore.py` togliere `_json_da_risposta` e usare `from risposta import primo_json` (i moduli si importano con `ciclo/` in `sys.path`, come gia' fa `from ciclo import …`).
   Verifica: `cd piani && timeout 120 python3 -m unittest test_risposta test_ruoli test_orchestratore`
-- [ ] 6. Revisore e ricercatore davvero in sola lettura
+- [ ] 6.1 Implementare `_elenco` (spezzato)
   File: `ciclo/ruoli.py`
-  Cosa fare: sostituire `_prima_stato` e `_annulla_cambi` con: `_elenco(cartella)` = nomi di `git ls-files` piu' `git ls-files --others --exclude-standard` (percorsi relativi, anche in sottocartelle); `_istantanea(cartella)` = dict nome → bytes del contenuto per ogni nome di `_elenco` che e' un file; `_ripristina(cartella, prima)`: per ogni nome in `sorted(set(prima) | set(_elenco(cartella)))`: se era in `prima` e ora manca o e' diverso, riscrive i bytes di prima (creando le cartelle che mancano); se non era in `prima` ed esiste, lo cancella; restituisce i nomi toccati in ordine. Scrivere e cancellare solo percorsi la cui `os.path.realpath` sta dentro `realpath(cartella)` (non usare `_scrivi` di `ciclo.py`, che rifiuta le sottocartelle). Il revisore ignora `compito['file']`: niente perimetro e niente «File che puoi modificare» nel prompt; il diff del prompt e' `_diff(cartella, nomi)` con `nomi` = `sorted(_sporchi(cartella))` (tracciati cambiati e file nuovi, anche in sottocartella). `_ripristina` va chiamato sempre dopo `lancia`, anche se solleva eccezione. Il ricercatore fa UNA sola chiamata a `lancia` con prompt: il compito, «Cerca prima nella KB, poi usa la skill web, e salva la sintesi nella KB con kb_salva.»; codice 0 → `{'esito': 'fatto', 'testo': uscita, 'scritture_annullate': [...]}`, altrimenti `{'esito': 'non-fatto', 'motivo': ...}`. Con `primo_json` del passo 5, il revisore accetta solo un dict con `ok` booleano e `difetti` lista, altrimenti «risposta illeggibile».
+  Cosa fare: sostituire `_prima_stato` con `_elenco(cartella)` che restituisce nomi di `git ls-files` più `git ls-files --others --exclude-standard` (percorsi relativi anche in sottocartelle)
+  Verifica: `cd piani && timeout 120 python3 -m unittest test_ruoli_lettura.test_ruoli_lettura.SolaLettura.test_sottocartella_ripristinata`
+
+- [ ] 6.2 Implementare `_istantanea` (spezzato)
+  File: `ciclo/ruoli.py`
+  Cosa fare: aggiungere `_istantanea(cartella)` che restituisce dict nome → bytes del contenuto per ogni nome di `_elenco` che è un file
+  Verifica: `cd piani && timeout 120 python3 -m unittest test_ruoli_lettura`
+
+- [ ] 6.3 Implementare `_ripristina` con path validation (spezzato)
+  File: `ciclo/ruoli.py`
+  Cosa fare: aggiungere `_ripristina(cartella, prima)` che per ogni nome in `sorted(set(prima) | set(_elenco(cartella)))`: se era in `prima` e ora manca o è diverso riscrive i bytes di prima (creando cartelle); se non era in `prima` ed esiste lo cancella; restituisce nomi toccati; validare con `os.path.realpath` che i percorsi stanno dentro `realpath(cartella)`
+  Verifica: `cd piani && timeout 120 python3 -m unittest test_ruoli_lettura.test_ruoli_lettura.SolaLettura.test_sottocartella_ripristinata`
+
+- [ ] 6.4 Aggiornare `revisore` per sola lettura (spezzato)
+  File: `ciclo/ruoli.py`
+  Cosa fare: rimuovere `_annulla_cambi` e `_prima_stato`; usare `_istantanea` e `_ripristina`; ignorare `compito['file']` (niente perimetro e niente «File che puoi modificare» nel prompt); diff usa `_sporchi(cartella)`; chiamare `_ripristina` sempre dopo `lancia`, anche se eccezione
+  Verifica: `cd piani && timeout 120 python3 -m unittest test_ruoli_lettura.test_ruoli_lettura.SolaLettura.test_sottocartella_ripristinata`
+
+- [ ] 6.5 Aggiornare `ricercatore` per una sola chiamata (spezzato)
+  File: `ciclo/ruoli.py`
+  Cosa fare: il ricercatore fa UNA sola chiamata a `lancia` con prompt: il compito, «Cerca prima nella KB, poi usa la skill web, e salva la sintesi nella KB con kb_salva.»; codice 0 → `{'esito': 'fatto', 'testo': uscita, 'scritture_annullate': [...]}`, altrimenti `{'esito': 'non-fatto', 'motivo': ...}`; usa `_ripristina` per annullare
   Verifica: `cd piani && timeout 120 python3 -m unittest test_ruoli_lettura test_ruoli`
+
 - [ ] 7. Orchestratore: casi mancanti
   File: `ciclo/orchestratore.py`
   Cosa fare: (a) la seconda richiesta al modello e' il prompt completo della prima piu' una riga «piano non valido: <motivo>; rispondi di nuovo con il JSON.»; (b) `_convalida_piano` non va mai in errore: `compito` e `verifica` devono essere stringhe non vuote, `file` una lista non vuota di stringhe relative, senza `\\`, senza componenti `..` (controllare `f.split('/')`); con risposta non `dict` motivo «il piano non è un oggetto»; (c) i compiti si eseguono in ordine e la correzione avviene subito quando un revisore restituisce `ok` falso: se prima non c'e' stato un programmatore → `aiuto` con i difetti nel motivo; altrimenti il programmatore rifà l'ultimo compito del programmatore con i difetti aggiunti al testo del compito; se questo esito non e' `fatto` → `aiuto`; poi lo stesso compito del revisore (lo stesso dict del piano) ripassa; se l'esito non e' `fatto` o `ok` e' ancora falso → `aiuto` con i difetti; altrimenti si prosegue con i compiti successivi; un secondo revisore con `ok` falso dopo la correzione gia' fatta → `aiuto`. `avvisa` riceve sempre la richiesta, e in caso di `aiuto` il motivo con i difetti.
