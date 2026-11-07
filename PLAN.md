@@ -5,6 +5,7 @@ modello: esecutore
 verifica_globale: timeout 300 python3 -m unittest tests/test_agente.py tests/test_ciclo.py tests/test_esecuzione.py tests/test_orchestratore.py tests/test_agente_catena.py tests/test_ciclo_qualita.py tests/test_ruoli.py
 accettazione: cd piani && timeout 200 python3 -m unittest test_revisore_tre_letture
 correzioni_semafori: 1
+spezzati: 1
 ---
 # Piano: tre letture del revisore, ciascuna con il suo compito
 
@@ -28,41 +29,23 @@ mv piani/test_revisore_tre_letture.py tests/
   ```
   Verifica: `test -f tests/test_revisore_tre_letture.py && timeout 200 python3 -m unittest tests/test_revisore_tre_letture.py`
 
-- [ ] 4. Correzione dei semafori rossi (giro 1)
-  File: `tests/test_cliente.py`, `tests/test_kb.py`, `tests/test_servizio.py`
-  Cosa fare: a fine piano le regole di verifica del progetto (semafori) sono ROSSE. Capisci la causa di ogni
-  controllo segnato con ❌ qui sotto e correggila nel codice, senza spegnere controlli, saltare test o cambiare
-  `controlli.toml`. I ⚠️ sono avvisi: correggili solo se riguardano i file del piano.
-  ## Semafori: 🔴 ROSSO
-  
-  - Base `1b7d0fc49af6`; controlli del progetto: `controlli.toml`.
-  
-  - ✅ **verifica generale del piano** (1.2 s)
-    - Ran 39 tests in 1.130s
-    - OK
-  - ✅ **test finali della fase** (0.2 s)
-    - Ran 3 tests in 0.133s
-    - OK
-  - ✅ **segreti**
-  - ✅ **conflitti**
-  - ✅ **file-spuri**
-  - ✅ **test-saltati**
-  - ✅ **test-cancellati**
-  - ✅ **todo**
-  - ✅ **file-grandi**
-  - ⚠️ **file-monolitici** — File di codice oltre 500 righe modificati: dividere in moduli piccoli
-    - web/web.py (545 righe)
-  - ✅ **codice-ripetuto**
-  - ⚠️ **segreti-nei-test** — Valori simili a segreti nei file di test (controllare che siano finti)
-    - tests/test_cliente.py:15: …TOKEN = 'tok…
-    - tests/test_cliente.py:62: …TOKEN='sbagl…
-    - tests/test_kb.py:53: …-----BEGIN O…
-    - tests/test_servizio.py:19: …TOKEN = 'tok…
-    - tests/test_servizio.py:71: …token='sbagl…
-  - ❌ **Test** (22.3 s)
-    - uscita 1
-    - FAIL: test_da_capo_a_fondo (test_agente_orchestratore.Orchestratore.test_da_capo_a_fondo)
-    - Ran 149 tests in 22.229s
-    - FAILED (failures=1)
-  - ✅ **Solo libreria standard di Python**
+- [ ] 4.1 Rinominare TOKEN in test_kb.py (spezzato)
+  File: `tests/test_kb.py`
+  Cosa fare: sostituire `TOKEN = 'token-di-prova-0123456789'` con `CHIAVA_DI_TEST = 'finto-token-x-123'` e aggiornare tutti gli usi
+  Verifica: `grep -c "TOKEN = 'token-di-prova" tests/test_kb.py`
+
+- [ ] 4.2 Rinominare TOKEN in test_servizio.py (spezzato)
+  File: `tests/test_servizio.py`
+  Cosa fare: sostituire `TOKEN = 'token-di-prova-0123456789'` con `CHIAVA_DI_TEST = 'finto-token-x-123'` e aggiornare `self.stato = servizio.Kb(..., TOKEN)` e `chiama(..., token=TOKEN)`
+  Verifica: `grep -c "TOKEN = 'token-di-prova" tests/test_servizio.py`
+
+- [ ] 4.3 Correggere test_token_sbagliato in test_cliente.py (spezzato)
+  File: `tests/test_cliente.py`
+  Cosa fare: sostituire `TOKEN = 'token-di-prova-0123456789'` con `CHIAVA_DI_TEST = 'finto-token-x-123'`, `env=dict(os.environ, KB_URL=..., KB_TOKEN=TOKEN` con `KB_TOKEN=CHIAVA_DI_TEST`, e `KB_TOKEN='sbagliato'` con `KB_TOKEN='finto-sbagliato'`
+  Verifica: `grep "TOKEN = 'token-di-prova" tests/test_cliente.py`
+
+- [ ] 4.4 Verifica test_rifiuta_segreti (spezzato)
+  File: `tests/test_kb.py`
+  Cosa fare: eseguire solo il test che stava fallendo
   Verifica: `/opt/ai-vm/bin/semafori --base 1b7d0fc49af6; test $? -lt 2`
+
