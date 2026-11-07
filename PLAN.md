@@ -88,7 +88,7 @@ print('ok')
 EOF
   ```
   Verifica: `timeout 200 python3 -m unittest tests/test_agente_orchestratore.py tests/test_agente_catena.py tests/test_agente.py tests/test_agente_collegamento.py && grep -q "verifica_globale=args.verifica_globale" bin/agente && ! grep -q "if not args.senza_revisione" bin/agente`
-- [ ] 4.2 Semafori di nuovo non rossi
+- [x] 4.2 Semafori di nuovo non rossi
   File: nessuno (solo controllo)
   Cosa fare: esegui la verifica; non modificare file. Se fallisce, fermati e riporta l'uscita.
   Verifica: `timeout 280 /opt/ai-vm/bin/semafori --base 1b7d0fc49af6; test $? -lt 2`
