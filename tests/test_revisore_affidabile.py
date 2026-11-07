@@ -33,29 +33,31 @@ class Affidabile(unittest.TestCase):
         return ruoli.revisore({'agente': 'revisore', 'compito': 'metti x a 2 e aggiungi y'}, self.d, lancia)
 
     def test_basta_una_lettura_con_difetti(self):
-        r = self.rev('{"richieste": [], "ok": true, "difetti": []}', '{"richieste": [{"richiesta": "y", "fatta": false}], "ok": false, "difetti": ["manca y"]}')
+        r = self.rev('{"richieste": [], "ok": true, "difetti": []}', '{"richieste": [{"richiesta": "y", "fatta": false}], "ok": false, "difetti": ["manca y"]}', '{"richieste": [{"richiesta": "y", "fatta": false}], "ok": false, "difetti": ["manca y"]}')
         self.assertIs(r['ok'], False)
         self.assertEqual(r['difetti'], ['manca y'])
-        self.assertEqual(len(self.prompt), 2)
+        self.assertEqual(len(self.prompt), 3)
 
     def test_due_letture_ok(self):
         r = self.rev('{"richieste": [{"richiesta": "x", "fatta": true}], "ok": true, "difetti": []}',
+                     '{"richieste": [{"richiesta": "x", "fatta": true}], "ok": true, "difetti": []}',
                      '{"richieste": [{"richiesta": "x", "fatta": true}], "ok": true, "difetti": []}')
         self.assertIs(r['ok'], True)
 
     def test_una_richiesta_non_fatta_vale_come_difetto(self):
         r = self.rev('{"richieste": [{"richiesta": "aggiungi y", "fatta": false}], "ok": true, "difetti": []}',
+                     '{"richieste": [{"richiesta": "aggiungi y", "fatta": false}], "ok": true, "difetti": []}',
                      '{"richieste": [{"richiesta": "aggiungi y", "fatta": false}], "ok": true, "difetti": []}')
         self.assertIs(r['ok'], False)
         self.assertIn('aggiungi y', ' '.join(r['difetti']))
 
     def test_il_prompt_chiede_le_richieste_una_per_una(self):
-        self.rev('{"richieste": [], "ok": true, "difetti": []}', '{"richieste": [], "ok": true, "difetti": []}')
+        self.rev('{"richieste": [], "ok": true, "difetti": []}', '{"richieste": [], "ok": true, "difetti": []}', '{"richieste": [], "ok": true, "difetti": []}')
         self.assertIn('"richieste"', self.prompt[0])
         self.assertIn('una per una', self.prompt[0])
 
     def test_una_lettura_illeggibile_conta_l_altra(self):
-        r = self.rev('non so', '{"richieste": [], "ok": true, "difetti": []}')
+        r = self.rev('non so', '{"richieste": [], "ok": true, "difetti": []}', '{"richieste": [], "ok": true, "difetti": []}')
         self.assertIs(r['ok'], True)
 
 
