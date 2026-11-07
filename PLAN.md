@@ -4,7 +4,7 @@ ramo: ai/agente-ciclo
 modello: esecutore
 verifica_globale: timeout 300 sh -c 'python3 -m unittest tests/test_agente.py tests/test_coda.py && python3 -m unittest tests/test_misura.py'
 accettazione: timeout 200 python3 -m unittest tests/test_ciclo.py tests/test_esecuzione.py
-spezzati: 1
+spezzati: 2
 aiuti: 3
 correzioni_semafori: 1
 ---
@@ -207,22 +207,23 @@ FINE_CICLO
   ```
   Verifica: `grep -q "open(os.environ.get('CODA_MISURE', REGISTRO), 'a'" coda/misura.py && cd tests && timeout 120 python3 -m unittest test_coda test_misura`
 
-- [ ] 4.2 Semafori, parte 2: i test della fase in coda escono da `tests/`
-  File: `tests/test_ruoli.py`, `tests/test_orchestratore.py`, `piani/test_ruoli.py`, `piani/test_orchestratore.py`, `piani/ruoli.md`
-  Nota: `test_ruoli` e `test_orchestratore` sono i test della fase successiva (`piani/ruoli.md`): falliscono finché quella fase non scrive `ciclo/ruoli.py` e `ciclo/orchestratore.py`, che NON vanno scritti ora. Si spostano in `piani/` (il loro percorso `../ciclo` resta giusto) e la fase in coda li rimette in `tests/` col suo primo passo. Non scrivere codice in `ciclo/`.
-  Cosa fare: esegui ESATTAMENTE questo comando (copialo così com'è):
-  ```sh
-  mv tests/test_ruoli.py tests/test_orchestratore.py piani/ && python3 - <<'FINE_PY'
-p = 'piani/ruoli.md'
-t = open(p, encoding='utf-8').read()
-vecchio = '- [ ] 1. I ruoli\n'
-nuovo = ('- [ ] 0. I test della fase al loro posto\n'
-         '  File: `piani/test_ruoli.py`, `piani/test_orchestratore.py`, `tests/test_ruoli.py`, `tests/test_orchestratore.py`\n'
-         '  Cosa fare: esegui ESATTAMENTE questo comando: `mv piani/test_ruoli.py piani/test_orchestratore.py tests/`\n'
-         '  Verifica: `test -f tests/test_ruoli.py && test -f tests/test_orchestratore.py && test ! -e piani/test_ruoli.py && test ! -e piani/test_orchestratore.py`\n'
-         + vecchio)
-assert t.count(vecchio) == 1 and '0. I test della fase' not in t
-open(p, 'w', encoding='utf-8').write(t.replace(vecchio, nuovo))
-FINE_PY
-  ```
+- [ ] 4.2.1 Spostare `tests/test_ruoli.py` (spezzato)
+  File: `piani/test_ruoli.py`
+  Cosa fare: `mv tests/test_ruoli.py piani/test_ruoli.py`
+  Verifica: `test -f piani/test_ruoli.py && test ! -e tests/test_ruoli.py`
+
+- [ ] 4.2.2 Spostare `tests/test_orchestratore.py` (spezzato)
+  File: `piani/test_orchestratore.py`
+  Cosa fare: `mv tests/test_orchestratore.py piani/test_orchestratore.py`
+  Verifica: `test -f piani/test_orchestratore.py && test ! -e tests/test_orchestratore.py`
+
+- [ ] 4.2.3 Aggiungere sezione 0 su `piani/ruoli.md` (spezzato)
+  File: `piani/ruoli.md`
+  Cosa fare: aggiungere all'inizio della lista passi la sezione 0 con il comando di rimissione in `tests/`
+  Verifica: `grep -q "0. I test della fase" piani/ruoli.md`
+
+- [ ] 4.2.4 Verificare che i test siano eseguibili dal nuovo percorso (spezzato)
+  File: `piani/test_ruoli.py`
+  Cosa fare: `timeout 120 python3 -m unittest piani.test_ruoli piani.test_orchestratore`
   Verifica: `test ! -e tests/test_ruoli.py && test ! -e tests/test_orchestratore.py && test -f piani/test_ruoli.py && test -f piani/test_orchestratore.py && grep -q "mv piani/test_ruoli.py piani/test_orchestratore.py tests/" piani/ruoli.md && { /opt/ai-vm/bin/semafori --base 1b7d0fc49af6; test $? -lt 2; }`
+
