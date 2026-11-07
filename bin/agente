@@ -193,53 +193,52 @@ def _orchestratore(richiesta, cartella, radice):
     - agenti: programmatore, revisore, ricercatore di ruoli collegati a Esecuzione
     - avvisa: scrive sulla FIFO orchestratore con avviso.scrivi e stampa l'avviso
     """
-    # Importa i moduli ciclo senza modificare sys.path globale
+    # Inserisce il ciclo in sys.path e importa i moduli
     ciclo_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'ciclo')
-    # Carica il modulo ciclo/ruoli.py come ruoli
-    ruoli_spec = importlib.util.spec_from_file_location("ciclo.ruoli", os.path.join(ciclo_path, 'ruoli.py'))
-    ruoli = importlib.util.module_from_spec(ruoli_spec)
-    ruoli_spec.loader.exec_module(ruoli)
-    # Carica il modulo ciclo/orchestratore.py come orchestratore
-    orch_spec = importlib.util.spec_from_file_location("ciclo.orchestratore", os.path.join(ciclo_path, 'orchestratore.py'))
-    orchestratore = importlib.util.module_from_spec(orch_spec)
-    orch_spec.loader.exec_module(orchestratore)
-    # Carica anche esecuzione.py e aggiungi Esecuzione al modulo ruoli
-    exec_spec = importlib.util.spec_from_file_location("ciclo.esecuzione", os.path.join(ciclo_path, 'esecuzione.py'))
-    exec_module = importlib.util.module_from_spec(exec_spec)
-    exec_spec.loader.exec_module(exec_module)
+    sys.path.insert(0, ciclo_path)
+    import ruoli
+    import orchestratore
+    import esecuzione
     
-    # Importa Esecuzione e crea un'istanza
-    esecuzione = exec_module.Esecuzione(
-        radice=radice,
-        esegui=[sys.executable, os.path.join(DEFAULT_RADICE, 'bin', 'agente')],
-        modello='esecutore-pensiero',
-        tempo=1900
+    # Determina esegui: usa AGENTE_ESEGUI se presente, altrimenti il default
+    esegui_fn = os.environ.get('AGENTE_ESEGUI')
+    if esegui_fn:
+        esegui = [esegui_fn]
+    else:
+        esegui = ['sudo', '-n', '-u', 'esecutore', '/opt/ai-vm/libexec/esegui-passo']
+    
+    # Crea Esecuzione
+    e = esecuzione.Esecuzione(
+        radice=os.environ.get('AGENTE_PROGETTI', '/srv/progetti'),
+        esegui=esegui,
+        modello='esecutore-pensiero'
     )
     
-    # Importa gli agenti da ruoli
-    programmatore = ruoli.programmatore
-    revisore = ruoli.revisore
-    ricercatore = ruoli.ricercatore
+    # Valida cartella come progetto
+    try:
+        e.progetto(cartella)
+    except ValueError as ex:
+        print('errore: ' + str(ex), file=sys.stderr)
+        sys.exit(2)
     
-    # Crea il dict degli agenti
+    # Crea il dict degli agenti con lambda
     agenti = {
-        'programmatore': programmatore,
-        'revisore': revisore,
-        'ricercatore': ricercatore
+        'programmatore': lambda c, d: ruoli.programmatore(c, d, lancia=e.lancia, verifica_fn=e.verifica, lezioni=e.lezioni),
+        'revisore': lambda c, d: ruoli.revisore(c, d, e.lancia),
+        'ricercatore': lambda c, d: ruoli.ricercatore(c, d, e.lancia)
     }
     
     # Crea la funzione chiedi che usa Esecuzione.lancia con prompt «rispondi solo con il JSON»
     def chiedi(prompt):
         # Aggiunge «rispondi solo con il JSON» al prompt
         prompt = prompt + '\n\nRispondi solo con il JSON.'
-        codice, uscita = esecuzione.lancia(prompt, cartella)
-        # Restituisce solo l'uscita (la stringa)
-        return uscita
+        codice, uscita = e.lancia(prompt, cartella)
+        # Restituisce solo l'uscita (la stringa), vuota se codice != 0
+        return uscita if codice == 0 else ''
     
     # Importa avviso.scrivi da /opt/ai-vm/lib/avviso.py se esiste
     avviso_scrivi = None
     try:
-        import sys
         sys.path.insert(0, '/opt/ai-vm/lib')
         import avviso
         avviso_scrivi = avviso.scrivi
@@ -283,7 +282,6 @@ def main():
     parser.add_argument('--tentativi', type=int, default=3, help='numero di tentativi (1-5, default 3)')
     parser.add_argument('--json', action='store_true', help='output JSON')
     parser.add_argument('--aiuto', action='store_true', help='mostra aiuto e usa argparse')
-    parser.add_argument('--orchestratore', action='store_true', help='usa l\'orchestratore invece del profilo')
 
     args = parser.parse_args()
 
@@ -291,14 +289,18 @@ def main():
         parser.print_help()
         sys.exit(0)
 
-    # Se --orchestratore, usa l'orchestratore
-    if args.orchestratore:
+    # Se il primo argomento è 'orchestratore', usa l'orchestratore
+    if args.nome == 'orchestratore':
         if not args.compito:
-            print('errore: richiesta richiesta con --orchestratore', file=sys.stderr)
-            sys.exit(1)
+            print('errore: richiesta richiesta', file=sys.stderr)
+            sys.exit(2)
+        
+        if not args.cartella:
+            print('errore: --cartella richiesto', file=sys.stderr)
+            sys.exit(2)
         
         richiesta = ' '.join(args.compito) if isinstance(args.compito, list) else args.compito
-        cartella = args.cartella or os.getcwd()
+        cartella = args.cartella
         radice = os.environ.get('AGENTE_RADICE', DEFAULT_RADICE)
         
         risultato = _orchestratore(richiesta, cartella, radice)
