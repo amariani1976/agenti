@@ -19,7 +19,7 @@ Due letture uguali sbagliano allo stesso modo: sul banco sono passati lavori con
   File: `tests/test_revisore_affidabile.py`
   Cosa fare: dove i test danno due risposte o contano due prompt, aggiungi una terza risposta uguale alla seconda e conta tre prompt. Non cambiare cosa si controlla.
   Verifica: `timeout 200 python3 -m unittest tests/test_revisore_affidabile.py tests/test_ruoli.py`
-- [ ] 3. Il test al suo posto
+- [x] 3. Il test al suo posto
   File: `tests/test_revisore_tre_letture.py`
   Esegui:
   ```bash
