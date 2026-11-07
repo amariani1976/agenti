@@ -7,6 +7,7 @@ accettazione: timeout 200 python3 -m unittest tests/test_ciclo.py tests/test_ese
 spezzati: 2
 aiuti: 4
 correzioni_semafori: 1
+collaudi: 1
 ---
 # Piano: un agente unico che usa il modello locale nel modo migliore
 
