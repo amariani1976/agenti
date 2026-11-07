@@ -36,7 +36,7 @@ mv piani/test_revisore_affidabile.py tests/
 sed -i "63s/\] \* 2)/] * 3)  # piano + due letture del revisore/" tests/test_agente_orchestratore.py
   ```
   Verifica: `grep -q "esecutore-pensiero'\] \* 3)" tests/test_agente_orchestratore.py && timeout 120 python3 -m unittest tests/test_agente_orchestratore.py`
-- [ ] 3.2 Semafori di nuovo verdi
+- [x] 3.2 Semafori di nuovo verdi
   File: nessuno (solo verifica)
   Cosa fare: niente da modificare; si controlla che la suite completa passi e che i semafori non siano rossi.
   Verifica: `timeout 600 python3 -m unittest discover -s tests -p 'test_*.py' && { /opt/ai-vm/bin/semafori --base 1b7d0fc49af6; test $? -lt 2; }`
