@@ -243,6 +243,11 @@ def _orchestratore(richiesta, cartella, radice):
         'ricercatore': lambda c, d: ruoli.ricercatore(c, d, e.lancia)
     }
     
+    # Se non c'è --senza-revisione, aggiungi la funzione revisione con lo stesso Esecuzione del programmatore
+    revisione_fn = None
+    if not args.senza_revisione:
+        revisione_fn = lambda compito, cartella: ruoli.revisore({'agente': 'revisore', 'compito': compito}, cartella, e.lancia)
+    
     # Crea la funzione chiedi che usa Esecuzione.lancia con prompt «rispondi solo con il JSON»
     def chiedi(prompt):
         # Aggiunge «rispondi solo con il JSON» al prompt
@@ -277,6 +282,7 @@ def _orchestratore(richiesta, cartella, radice):
         chiedi=chiedi,
         agenti=agenti,
         avvisa=avvisa,
+        revisione=revisione_fn,
         max_compiti=6
     )
     
@@ -295,6 +301,8 @@ def main():
     parser.add_argument('--file', help='lista di file separati da virgola per --verifica')
     parser.add_argument('--verifica', help='comando di verifica da passare a ciclo.esegui')
     parser.add_argument('--tentativi', type=int, default=3, help='numero di tentativi (1-5, default 3)')
+    parser.add_argument('--verifica-globale', help='comando di verifica globale da passare a ciclo.esegui')
+    parser.add_argument('--senza-revisione', action='store_true', help='non eseguire la revisione dopo la verifica')
     parser.add_argument('--json', action='store_true', help='output JSON')
     parser.add_argument('--aiuto', action='store_true', help='mostra aiuto e usa argparse')
 
