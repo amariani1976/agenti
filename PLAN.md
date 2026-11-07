@@ -2,7 +2,7 @@
 stato: in-esecuzione
 ramo: ai/agente-ciclo
 modello: esecutore
-verifica_globale: timeout 200 python3 -m unittest tests/test_agente.py tests/test_coda.py tests/test_misura.py
+verifica_globale: timeout 300 sh -c 'python3 -m unittest tests/test_agente.py tests/test_coda.py && python3 -m unittest tests/test_misura.py'
 accettazione: timeout 200 python3 -m unittest tests/test_ciclo.py tests/test_esecuzione.py
 spezzati: 1
 aiuti: 2
@@ -13,8 +13,9 @@ aiuti: 2
 Hermes e Claude devono poter affidare un compito al modello locale con lo stesso metodo che fa funzionare il runner dei piani: comando di verifica che deve passare, al massimo 3 tentativi con l'errore del tentativo prima, perimetro dei file con annullamento di ciò che esce, lezioni dalla KB, esito chiaro. Agente e verifica passano da `esegui-passo` (utente `esecutore`, rete solo locale, guardiano dei comandi appesi). I test sono già pronti e non si modificano: sono il contratto. Python 3.6, sola libreria standard, niente f-string nei file nuovi. Ogni comando con `timeout`. Non usare git per fare commit: il ciclo usa git solo per leggere e ripristinare.
 
 ## Passi
-- [!] 1.1 Il ciclo, parte 1: funzioni di appoggio
+- [ ] 1.1 Il ciclo, parte 1: funzioni di appoggio
   File: `ciclo/ciclo.py`
+  Nota: il lavoro dei tentativi precedenti era giusto; falliva la verifica generale per un difetto dei test (corretta nel piano). Rifai il passo così com'è, senza toccare altri file.
   Cosa fare: file nuovo. Crealo con ESATTAMENTE questo comando (copialo così com'è, non cambiare il testo):
   ```sh
   mkdir -p ciclo && cat > ciclo/ciclo.py <<'FINE_CICLO'
