@@ -78,131 +78,41 @@ def programmatore(compito, cartella, esegui=esegui, **k):
 
 
 def revisore(compito, cartella, lancia):
-    """Revisore: chiede una revisione e annulla ogni scrittura.
-    
-    - Crea un prompt con il compito
-    - Esegue git diff della cartella (inclusi file nuovi)
-    - Chiede di rispondere SOLO con JSON {"ok": bool, "difetti": [stringhe]}
-    - Dopo la chiamata, annulla ogni cambio fatto durante la chiamata
-    - Legge il primo oggetto JSON della risposta (anche dentro ```json)
-    - Risposta illeggibile: {'esito': 'non-fatto', 'motivo': ...}
-    
-    Restituisce:
-    - {'esito': 'fatto', 'ok': bool, 'difetti': [stringhe], 'scritture_annullate': [nomi]}
-    - {'esito': 'non-fatto', 'motivo': motivo}
-    """
-    # Traccia lo stato prima della chiamata
-    prima = _prima_stato(cartella)
-    
-    # Ottieni i file nel perimetro (se presenti nel compito)
-    file_param = compito.get('file')
-    perimetro = set(file_param) if file_param else set()
-    
-    # Crea il prompt con il compito e il diff
+    """Revisore: chiede un giudizio in JSON e annulla ogni scrittura fatta durante la chiamata."""
+    prima = _istantanea(cartella)
     prompt = 'Compito: ' + compito['compito']
-    if perimetro:
-        prompt += '\nFile che puoi modificare (solo questi): ' + ', '.join(perimetro)
-    
-    # Aggiungi il diff della cartella (tutti i file se perimetro vuoto)
-    file_per_diff = list(perimetro) if perimetro else []
-    # Se non ci sono file nel perimetro, includi tutti i file tracciati
-    if not file_per_diff:
-        codice, tracciati = _git(cartella, 'ls-files')
-        if tracciati.strip():
-            file_per_diff = [n for n in tracciati.strip().split('\n') if n]
-    
-    # Filtra nomi di file invalidi (vuoti, assoluti, con path traversal)
-    file_per_diff = [n for n in file_per_diff if n and not n.startswith('/') and '..' not in n]
-    
-    diff = _diff(cartella, file_per_diff)
+    diff = _diff(cartella, sorted(_sporchi(cartella)))
     if diff:
         prompt += '\n\nDiff della cartella:\n' + diff
-    
     prompt += '\n\nRispondi SOLO con un JSON: {"ok": bool, "difetti": [stringhe]}'
-    
-    # Lancia il modello con gestione eccezioni
     try:
         codice, uscita = lancia(prompt, cartella)
     except Exception as e:
-        # Annulla i cambiamenti anche in caso di errore
-        _annulla_cambi(cartella, prima, perimetro)
+        _ripristina(cartella, prima)
         return {'esito': 'non-fatto', 'motivo': 'eccezione durante la chiamata: ' + str(e)}
-    
-    # Annulla i cambiamenti fuori dal perimetro
-    scritture_annullate = _annulla_cambi(cartella, prima, perimetro)
-    
-    # Estrai il JSON dalla risposta
+    scritture_annullate = _ripristina(cartella, prima)
     dati = primo_json(uscita)
-    
     if dati is None:
         return {'esito': 'non-fatto', 'motivo': 'risposta illeggibile: non è un JSON valido'}
-    
-    ok = dati.get('ok', False)
-    difetti = dati.get('difetti', [])
-    
     return {
         'esito': 'fatto',
-        'ok': ok,
-        'difetti': difetti,
+        'ok': dati.get('ok', False),
+        'difetti': dati.get('difetti', []),
         'scritture_annullate': scritture_annullate
     }
 
 
 def ricercatore(compito, cartella, lancia):
-    """Ricercatore: cerca nella KB e sul web, salva la sintesi.
-    
-    - Chiamalancia con il compito e istruzione di cercare nella KB
-    - Poi con la skill web
-    - Salva la sintesi nella KB
-    - Restituisce {'esito': 'fatto', 'testo': uscita} se il codice è 0
-    - Stessa lettura del revisore sui file della cartella
-    
-    Restituisce:
-    - {'esito': 'fatto', 'testo': testo} se successo
-    - {'esito': 'non-fatto', 'motivo': motivo} se fallito
-    """
-    # Traccia lo stato prima della chiamata
-    prima = _prima_stato(cartella)
-    
-    # Ottieni i file nel perimetro (se presenti nel compito)
-    file_param = compito.get('file')
-    perimetro = set(file_param) if file_param else set()
-    
-    # Crea il prompt per la ricerca KB
-    prompt_kb = 'Compito: ' + compito['compito'] + '\n\nCerca nella Knowledge Base e fornisci una sintesi.'
-    
-    # Lancia la ricerca KB con gestione eccezioni
+    """Ricercatore: una sola chiamata che cerca nella KB e sul web e salva la sintesi; non scrive file."""
+    prima = _istantanea(cartella)
+    prompt = ('Compito: ' + compito['compito'] +
+              '\n\nCerca prima nella KB, poi usa la skill web, e salva la sintesi nella KB con kb_salva.')
     try:
-        codice_kb, uscita_kb = lancia(prompt_kb, cartella)
+        codice, uscita = lancia(prompt, cartella)
     except Exception as e:
-        # Annulla i cambiamenti anche in caso di errore
-        _annulla_cambi(cartella, prima, perimetro)
-        return {'esito': 'non-fatto', 'motivo': 'eccezione durante la ricerca KB: ' + str(e)}
-    
-    # Crea il prompt per la ricerca web
-    prompt_web = 'Compito: ' + compito['compito'] + '\n\nUsa la skill web per cercare e fornisci una sintesi.'
-    
-    # Lancia la ricerca web con gestione eccezioni
-    try:
-        codice_web, uscita_web = lancia(prompt_web, cartella)
-    except Exception as e:
-        # Annulla i cambiamenti anche in caso di errore
-        _annulla_cambi(cartella, prima, perimetro)
-        return {'esito': 'non-fatto', 'motivo': 'eccezione durante la ricerca web: ' + str(e)}
-    
-    # Annulla i cambiamenti fuori dal perimetro
-    scritture_annullate = _annulla_cambi(cartella, prima, perimetro)
-    
-    # Se entrambi i codici sono 0, restituisce il testo
-    if codice_kb == 0 and codice_web == 0:
-        testo_sintesi = uscita_kb + '\n\n' + uscita_web
-        return {
-            'esito': 'fatto',
-            'testo': testo_sintesi,
-            'scritture_annullate': scritture_annullate
-        }
-    else:
-        return {
-            'esito': 'non-fatto',
-            'motivo': 'codice di ritorno non zero: KB={}, Web={}'.format(codice_kb, codice_web)
-        }
+        _ripristina(cartella, prima)
+        return {'esito': 'non-fatto', 'motivo': 'eccezione durante la ricerca: ' + str(e)}
+    scritture_annullate = _ripristina(cartella, prima)
+    if codice != 0:
+        return {'esito': 'non-fatto', 'motivo': 'codice di ritorno non zero: ' + str(codice)}
+    return {'esito': 'fatto', 'testo': uscita, 'scritture_annullate': scritture_annullate}

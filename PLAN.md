@@ -109,7 +109,7 @@ open(p, 'w', encoding='utf-8').write(t[:i] + nuovo + t[j:])
 EOF
   ```
   Verifica: `timeout 60 python3 -c "import sys; sys.path.insert(0, 'ciclo'); import ruoli; assert not hasattr(ruoli, '_annulla_cambi') and not hasattr(ruoli, '_prima_stato'); import os, tempfile, subprocess; d = tempfile.mkdtemp(); g = lambda *a: subprocess.check_call(['git', '-C', d] + list(a), stdout=subprocess.DEVNULL); g('init', '-q'); os.makedirs(os.path.join(d, 'sub')); open(os.path.join(d, 'sub/b.py'), 'w').write('y'); g('add', '.'); g('-c', 'user.email=p@e.invalid', '-c', 'user.name=p', 'commit', '-qm', 'i'); open(os.path.join(d, 'sub/n.py'), 'w').write('n'); assert ruoli._elenco(d) == ['sub/b.py', 'sub/n.py']; p = ruoli._istantanea(d); open(os.path.join(d, 'sub/b.py'), 'w').write('rotto'); open(os.path.join(d, 'sub/z.py'), 'w').write('z'); assert ruoli._ripristina(d, p) == ['sub/b.py', 'sub/z.py']; assert open(os.path.join(d, 'sub/b.py')).read() == 'y' and not os.path.exists(os.path.join(d, 'sub/z.py')); print('ok')"`
-- [ ] 6.2 Revisore e ricercatore usano `_istantanea` e `_ripristina`
+- [x] 6.2 Revisore e ricercatore usano `_istantanea` e `_ripristina`
   File: `ciclo/ruoli.py`
   Cosa fare: eseguire dalla radice del progetto lo script qui sotto, così com'è. Riscrive tutto da `def revisore(` alla fine del file: il revisore ignora `compito['file']` (niente «File che puoi modificare»), mostra il diff di `_sporchi`, ripristina sempre dopo `lancia` (anche con eccezione); il ricercatore fa UNA sola chiamata (KB, skill web, salva con kb_salva).
   Esegui:
