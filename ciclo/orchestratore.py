@@ -56,7 +56,7 @@ def _convalida_piano(piano, agenti, max_compiti):
             for f in file_param:
                 if not isinstance(f, str):
                     return False, 'file non valido: ' + repr(f)
-                if '\\\\' in f:
+                if '\\' in f:
                     return False, 'file contiene backslash: ' + f
                 if f.startswith('/'):
                     return False, 'file assoluto: ' + f
@@ -148,7 +148,7 @@ def esegui(richiesta, cartella, chiedi, agenti, avvisa=None, max_compiti=6):
     ultimo_programmatore_idx = -1
     ultimo_programmatore = None
     
-    # Fase 1: esegui tutti i compiti in ordine
+    # Esegui i compiti in ordine con correzione immediata se un revisore restituisce ok=False
     for i, compito in enumerate(compiti):
         agente = compito.get('agente')
         esito = _esegui_compito(agenti, compito, cartella)
@@ -164,11 +164,9 @@ def esegui(richiesta, cartella, chiedi, agenti, avvisa=None, max_compiti=6):
         if agente == 'programmatore':
             ultimo_programmatore_idx = i
             ultimo_programmatore = compito
-    
-    # Fase 2: controlla se c'è un revisore con ok=False dopo l'ultimo programmatore
-    # Se c'è, un giro di correzione
-    for i, esito in enumerate(risultati):
-        if esito.get('esito') == 'fatto' and esito.get('ok') is False:
+        
+        # Se è un revisore e restituisce ok=False, correzione immediata
+        if agente == 'revisore' and esito.get('ok') is False:
             # Un giro di correzione: il programmatore dell'ultimo compito del programmatore rifà con i difetti
             if ultimo_programmatore and ultimo_programmatore_idx >= 0:
                 difetti = esito.get('difetti', [])
@@ -201,7 +199,6 @@ def esegui(richiesta, cartella, chiedi, agenti, avvisa=None, max_compiti=6):
                 if avvisa:
                     avvisa('aiuto', 'richiesta: ' + richiesta + ', motivo: ' + ', '.join(difetti))
                 return {'esito': 'aiuto', 'piano': compiti, 'risultati': risultati, 'motivo': ', '.join(difetti)}
-            break
     
     # Tutto finito, esito fatto
     if avvisa:
