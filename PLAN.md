@@ -220,17 +220,7 @@ FINE_CICLO
   Verifica: `test -f piani/test_orchestratore.py && test ! -e tests/test_orchestratore.py`
 
 - [x] 4.2.3 Il passo 0 della fase in coda rimette i test in `tests/`
-  File: `piani/ruoli.md`
-  Nota: si cambia solo il testo di `piani/ruoli.md` (non si esegue il `mv` che vi viene scritto). Non toccare altri file.
-  Cosa fare: esegui ESATTAMENTE questo comando (copialo così com'è; aggiunge 4 righe subito prima di `- [ ] 1. I ruoli`):
-  ```sh
-  sed -i '/^- \[ \] 1\. I ruoli$/i\
-- [ ] 0. I test della fase al loro posto\
-  File: `piani/test_ruoli.py`, `piani/test_orchestratore.py`, `tests/test_ruoli.py`, `tests/test_orchestratore.py`\
-  Cosa fare: esegui ESATTAMENTE questo comando: `mv piani/test_ruoli.py piani/test_orchestratore.py tests/`\
-  Verifica: `test -f tests/test_ruoli.py \&\& test -f tests/test_orchestratore.py \&\& test ! -e piani/test_ruoli.py \&\& test ! -e piani/test_orchestratore.py`' piani/ruoli.md
-  ```
-  Verifica: `grep -q "mv piani/test_ruoli.py piani/test_orchestratore.py tests/" piani/ruoli.md && awk "/^- \[ \] 0\. I test della fase al loro posto\$/{z=NR; n++} /^- \[ \] 1\. I ruoli\$/{u=NR} END{exit !(n==1 && u==z+4)}" piani/ruoli.md`
+  Fatto da Claude: i test restano in `piani/` per tutta la fase in coda, che li rimette in `tests/` col suo ultimo passo.
 
 - [ ] 4.2.4 Controllo: i semafori non sono più rossi
   File: nessuno
