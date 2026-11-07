@@ -121,28 +121,39 @@ def _aggiungi_richieste_non_fatte(difetti, richieste):
 def revisore(compito, cartella, lancia):
     """Revisore: chiede un giudizio in JSON e annulla ogni scrittura fatta durante la chiamata.
     
-    Chama lancia due volte con lo stesso prompt, ripristinando la cartella dopo ciascuna.
+    Chama lancia tre volte con prompt diversi (richieste, errori runtime, cambi oltre il richiesto),
+    ripristinando la cartella dopo ciascuna.
     ok è vero solo se ogni lettura leggibile ha ok vero e nessuna richiesta con fatta falso.
     difetti è l'unione (senza duplicati) dei difetti e delle richieste non fatte.
     """
     prima = _istantanea(cartella)
-    prompt = 'Compito: ' + compito['compito']
     diff = _diff(cartella, sorted(_sporchi(cartella)))
-    if diff:
-        prompt += '\n\nDiff della cartella:\n' + diff
-    prompt += '\n\nRegole di scrittura (segnala come difetti):'
-    prompt += '\n- Funzioni e classi nelle librerie vanno richiamate dove servono, non copiate'
-    prompt += '\n- Si riusa ciò che esiste invece di copiarlo'
-    prompt += '\n- Nessun codice duplicato'
-    prompt += '\n- Una funzione fa una cosa sola'
-    prompt += '\n\nFunzioni e classi esistenti nel progetto:'
-    prompt += '\n' + _elenco_funzioni(cartella)
-    prompt += '\n\nElenca le richieste del compito una per una e rispondi SOLO con un JSON:'
-    prompt += ' {"richieste": [{"richiesta": testo, "fatta": bool}], "ok": bool, "difetti": [stringhe]}'
-    prompt += ' ok è vero solo se tutte le richieste sono fatte e non ci sono difetti.'
     
+    # Prompt comune: compito, diff, regole di scrittura, funzioni esistenti, forma del JSON
+    prompt_base = 'Compito: ' + compito['compito']
+    if diff:
+        prompt_base += '\n\nDiff della cartella:\n' + diff
+    prompt_base += '\n\nRegole di scrittura (segnala come difetti):'
+    prompt_base += '\n- Funzioni e classi nelle librerie vanno richiamate dove servono, non copiate'
+    prompt_base += '\n- Si riusa ciò che esiste invece di copiarlo'
+    prompt_base += '\n- Nessun codice duplicato'
+    prompt_base += '\n- Una funzione fa una cosa sola'
+    prompt_base += '\n\nFunzioni e classi esistenti nel progetto:'
+    prompt_base += '\n' + _elenco_funzioni(cartella)
+    prompt_base += '\n\nElenca le richieste del compito una per una e rispondi SOLO con un JSON:'
+    prompt_base += ' {"richieste": [{"richiesta": testo, "fatta": bool}], "ok": bool, "difetti": [stringhe]}'
+    prompt_base += ' ok è vero solo se tutte le richieste sono fatte e non ci sono difetti.'
+    
+    # Tre letture con compiti diversi
     letture = []
-    for _ in range(2):
+    compiti = [
+        'Controlla che il compito sia fatto tutto: elenca le richieste una per una e di\' per ciascuna se il diff la soddisfa.',
+        'Cerca gli errori che si vedono solo quando il codice gira: metodi o attributi che non esistono sugli oggetti usati, file o flussi non chiusi, casi limite (vuoto, assente, errore), eccezioni non gestite.',
+        'Cerca i cambi oltre quello che il compito chiede: righe riscritte, traduzioni, commenti o nomi cambiati senza che il compito lo chieda; se il compito diceva di eseguire un comando, controlla che il risultato sia quello del comando.'
+    ]
+    
+    for compito_lettura in compiti:
+        prompt = prompt_base + '\n\nCompito lettura: ' + compito_lettura
         try:
             codice, uscita = lancia(prompt, cartella)
         except Exception as e:
@@ -159,7 +170,7 @@ def revisore(compito, cartella, lancia):
     # Filtra le letture leggibili
     letture_leggibili = [l for l in letture if l is not None]
     if not letture_leggibili:
-        return {'esito': 'non-fatto', 'motivo': 'entrambe le risposte illeggibili'}
+        return {'esito': 'non-fatto', 'motivo': 'tutte le risposte illeggibili'}
     
     # ok è vero solo se ogni lettura leggibile ha ok vero e tutte le richieste hanno fatta vero
     ok = True
