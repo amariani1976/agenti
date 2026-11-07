@@ -188,7 +188,7 @@ FINE_CICLO
   ```
   Verifica: `timeout 120 python3 -m unittest tests.test_ciclo`
 
-- [ ] 2. L'esecuzione vera
+- [x] 2. L'esecuzione vera
   File: `ciclo/esecuzione.py`
   Cosa fare: classe `Esecuzione(radice='/srv/progetti', esegui=['sudo', '-n', '-u', 'esecutore', '/opt/ai-vm/libexec/esegui-passo'], modello='esecutore-pensiero', tempo=1900)`. `progetto(cartella)`: il nome se `realpath(cartella)` è esattamente `radice/<nome>`, altrimenti `ValueError`. `lancia(prompt, cartella)`: esegue `esegui + ['agente', nome, modello]` con il prompt su stdin; restituisce `(codice, uscita)`. `verifica(comando, cartella)`: `esegui + ['verifica', nome]` con il comando su stdin. `lezioni(compito)`: `kb cerca` con le prime parole del compito, al massimo 1500 caratteri, lista vuota se `kb` manca o fallisce. Ogni chiamata con `timeout=self.tempo`; un tempo scaduto diventa `(124, 'tempo massimo superato')`.
   Verifica: `timeout 120 python3 -m unittest tests/test_esecuzione.py`
