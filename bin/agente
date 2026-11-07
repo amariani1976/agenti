@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Esecutore del comando agente: avvia pi con un profilo specifico."""
 import argparse
+import importlib.util
 import json
 import os
 import re
@@ -103,21 +104,25 @@ def _esegui_con_verifica(file_arg, verifica_arg, tentativi_arg, nome, compito, c
     """Esegue l'agente con verifica usando ciclo.esegui."""
     # Importa i moduli ciclo senza modificare sys.path globale
     ciclo_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'ciclo')
-    import sys
-    import importlib.util
-    spec = importlib.util.spec_from_file_location("ciclo", os.path.join(ciclo_path, '__init__.py'))
+    # Carica il modulo ciclo/ciclo.py come "ciclo"
+    spec = importlib.util.spec_from_file_location("ciclo", os.path.join(ciclo_path, 'ciclo.py'))
     ciclo = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(ciclo)
-    from ciclo.esecuzione import Esecuzione
+    # Carica anche esecuzione.py e aggiungi Esecuzione al modulo ciclo
+    exec_spec = importlib.util.spec_from_file_location("ciclo.esecuzione", os.path.join(ciclo_path, 'esecuzione.py'))
+    exec_module = importlib.util.module_from_spec(exec_spec)
+    exec_spec.loader.exec_module(exec_module)
+    ciclo.Esecuzione = exec_module.Esecuzione
 
     # Costruisci lista file con validazione path traversal
     file_list = []
     for f in file_arg.split(','):
         f = f.strip()
         if f:
-            # Normalizza il percorso e verifica che sia sotto la radice
-            abs_path = os.path.abspath(f)
-            if not abs_path.startswith(os.path.abspath(radice)):
+            # Risolvi il percorso relativo rispetto a radice e verifica path traversal
+            abs_path = os.path.normpath(os.path.join(radice, f))
+            radice_abs = os.path.abspath(radice)
+            if not abs_path.startswith(radice_abs + os.sep) and abs_path != radice_abs:
                 print('errore: path traversal rilevato: {0}'.format(f), file=sys.stderr)
                 sys.exit(2)
             file_list.append(f)
@@ -156,10 +161,15 @@ def _esegui_con_verifica(file_arg, verifica_arg, tentativi_arg, nome, compito, c
 
     # Esegui il comando con timeout per evitare blocco infinito
     env_full = dict(os.environ, **env)
-    subprocess.run(argv, env=env_full, cwd=cwd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True, timeout=120)
+    try:
+        subprocess.run(argv, env=env_full, cwd=cwd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True, timeout=120)
+    except subprocess.TimeoutExpired:
+        print('errore: timeout superato', file=sys.stderr)
+        sys.exit(2)
 
     # Costruisci Esecuzione per il ciclo (timeout gestito da ciclo.esegui)
-    esecuzione = Esecuzione(radice, [], tempo=60)
+    # Passa una funzione lambda come esegui, che restituisce [sys.executable, 'bin/agente']
+    esecuzione = Esecuzione(radice, lambda: [sys.executable, os.path.join(DEFAULT_RADICE, 'bin', 'agente')], tempo=60)
 
     # Esegui ciclo.esegui
     risultato = ciclo.esegui(
