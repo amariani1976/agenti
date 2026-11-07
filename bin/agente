@@ -248,7 +248,7 @@ def _orchestratore(richiesta, cartella, radice):
     
     # Crea il dict degli agenti con lambda
     agenti = {
-        'programmatore': lambda c, d: ruoli.programmatore(c, d, lancia=e.lancia, verifica_fn=e.verifica, lezioni=e.lezioni, revisione=lambda compito, cartella: ruoli.revisore({'agente': 'revisore', 'compito': compito['compito']}, cartella, e.lancia)),
+        'programmatore': lambda c, d: ruoli.programmatore(c, d, lancia=e.lancia, verifica_fn=e.verifica, lezioni=e.lezioni, revisione=lambda compito, cartella: ruoli.revisore({'agente': 'revisore', 'compito': compito}, cartella, e.lancia)),
         'revisore': lambda c, d: ruoli.revisore(c, d, e.lancia),
         'ricercatore': lambda c, d: ruoli.ricercatore(c, d, e.lancia)
     }

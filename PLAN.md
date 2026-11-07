@@ -25,7 +25,7 @@ mv piani/test_orchestratore_revisione.py tests/
   Verifica: `test -f tests/test_orchestratore_revisione.py && timeout 60 python3 -m unittest tests/test_orchestratore_revisione.py`
 
 ## Correzioni del collaudo
-- [ ] 3. La revisione riceve il compito come testo
+- [x] 3. La revisione riceve il compito come testo
   File: `bin/agente`
   Perché: `ciclo.esegui` chiama `revisione(compito, cartella)` con `compito` già testo; `compito['compito']` nella lambda del passo 1 solleva TypeError alla prima revisione. Il test `piani/test_orchestratore_revisione_compito.py` è già pronto e non si modifica.
   Esegui:
