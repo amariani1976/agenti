@@ -56,6 +56,23 @@ Comando unico sulla AI-VM: `agente <nome> [--cartella DIR] "<compito>"` → eseg
 del profilo, gli strumenti e il modello del ruolo; stampa il risultato. Usabile da Claude Code (Bash), da Hermes, dagli
 altri agenti (il coordinatore lo ha come skill) e dall'esecutore dei piani.
 
+## 4.1 Un solo modello, più agenti con capacità specifiche (decisione dell'utente, 2026-11-07)
+
+Tutti gli agenti usano **lo stesso modello** di produzione (alias `esecutore`/`esecutore-pensiero` di llama-swap, via
+`coda-gpu`); cambiano solo istruzioni, strumenti, skill e perimetro. Si usano uno o più agenti secondo il bisogno.
+Base comune a tutti: il **ciclo** (`ciclo/`), cioè il metodo del runner per un compito solo (verifica che deve
+passare, al massimo 3 tentativi con l'errore precedente, perimetro dei file con annullamento, lezioni dalla KB, esito
+chiaro), eseguito come utente `esecutore` con rete solo locale.
+
+| Agente | Capacità | Strumenti | Perimetro |
+|---|---|---|---|
+| `programmatore` | scrive codice finché la verifica passa | read, write, edit, bash | solo i file indicati |
+| `revisore` | legge un diff e i test, trova difetti, propone correzioni senza scriverle | read, bash | nessuna scrittura |
+| `ricercatore` | KB, poi SearXNG, poi salva in KB la sintesi | read, bash (kb, web) | solo `inbox/` della KB |
+| `coordinatore` | divide un compito, sceglie gli agenti, raccoglie gli esiti | read, bash (agente) | nessuna scrittura diretta |
+
+Chi li usa: Claude (Bash), Hermes (skill `agente` da Telegram), il runner dei piani (al posto della chiamata diretta).
+
 ## 5. Esecutore dei piani
 
 Oggi `esegui-passo` (root, `/opt/ai-vm/libexec`) chiama Hermes dell'utente `esecutore`. Si sostituisce quella sola riga
