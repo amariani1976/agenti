@@ -69,9 +69,9 @@ chiaro), eseguito come utente `esecutore` con rete solo locale.
 | `programmatore` | scrive codice finché la verifica passa | read, write, edit, bash | solo i file indicati |
 | `revisore` | legge un diff e i test, trova difetti, propone correzioni senza scriverle | read, bash | nessuna scrittura |
 | `ricercatore` | KB, poi SearXNG, poi salva in KB la sintesi | read, bash (kb, web) | solo `inbox/` della KB |
-| `coordinatore` | divide un compito, sceglie gli agenti, raccoglie gli esiti | read, bash (agente) | nessuna scrittura diretta |
+| `orchestratore` | riceve il compito, lo divide, richiama gli altri agenti (anche più di uno, in sequenza), ne controlla gli esiti e decide i passi successivi | read, bash (`agente`) | nessuna scrittura diretta |
 
-Chi li usa: Claude (Bash), Hermes (skill `agente` da Telegram), il runner dei piani (al posto della chiamata diretta).
+Chi li usa: Claude (Bash) e Hermes (skill `agente` da Telegram) chiamano di solito l'`orchestratore`, che richiama gli altri; il runner dei piani usa direttamente il `programmatore`. L'orchestratore usa lo stesso modello: ogni agente richiamato è una chiamata in sequenza, mai in parallelo, perché la GPU ne regge una per volta.
 
 ## 5. Esecutore dei piani
 
