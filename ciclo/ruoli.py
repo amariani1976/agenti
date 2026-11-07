@@ -1,26 +1,13 @@
 """Ruoli: programmatore usa il ciclo, revisore risponde in JSON e non scrive nulla."""
-import json
 import os
-import re
+import sys
 
 from ciclo import esegui, _diff, _git, _leggi, _sporchi, _scrivi
 
-
-def _json_da_risposta(uscita):
-    """Estrae il primo oggetto JSON dalla risposta, anche dentro un blocco ```json."""
-    if not uscita:
-        return None
-    # Cerca prima un blocco ```json ... ```
-    blocco = re.search(r'```json\s*(.*?)\s*```', uscita, re.DOTALL)
-    if blocco:
-        testo = blocco.group(1)
-    else:
-        # Altrimenti cerca JSON nella risposta intera
-        testo = uscita
-    try:
-        return json.loads(testo)
-    except (ValueError, TypeError):
-        return None
+# Importa primo_json da risposta.py
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import risposta
+primo_json = risposta.primo_json
 
 
 def _annulla_cambi(cartella, prima, perimetro):
@@ -156,7 +143,7 @@ def revisore(compito, cartella, lancia):
     scritture_annullate = _annulla_cambi(cartella, prima, perimetro)
     
     # Estrai il JSON dalla risposta
-    dati = _json_da_risposta(uscita)
+    dati = primo_json(uscita)
     
     if dati is None:
         return {'esito': 'non-fatto', 'motivo': 'risposta illeggibile: non è un JSON valido'}

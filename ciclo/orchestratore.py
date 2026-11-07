@@ -1,24 +1,12 @@
 """Orchestratore: il modello propone il piano, il programma lo convalida, richiama gli agenti in sequenza e avvisa."""
 import json
 import os
-import re
+import sys
 
-
-def _json_da_risposta(uscita):
-    """Estrae il primo oggetto JSON dalla risposta, anche dentro un blocco ```json."""
-    if not uscita:
-        return None
-    # Cerca prima un blocco ```json ... ```
-    blocco = re.search(r'```json\s*(.*?)\s*```', uscita, re.DOTALL)
-    if blocco:
-        testo = blocco.group(1)
-    else:
-        # Altrimenti cerca JSON nella risposta intera
-        testo = uscita
-    try:
-        return json.loads(testo)
-    except (ValueError, TypeError):
-        return None
+# Importa primo_json da risposta.py
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import risposta
+primo_json = risposta.primo_json
 
 
 def _convalida_piano(piano, agenti, max_compiti):
@@ -128,7 +116,7 @@ def esegui(richiesta, cartella, chiedi, agenti, avvisa=None, max_compiti=6):
     risposta = chiedi(prompt)
     
     # Leggere il primo JSON dalla risposta
-    piano = _json_da_risposta(risposta)
+    piano = primo_json(risposta)
     
     # Convalida il piano
     valido, motivo = _convalida_piano(piano, list(agenti.keys()), max_compiti)
@@ -136,7 +124,7 @@ def esegui(richiesta, cartella, chiedi, agenti, avvisa=None, max_compiti=6):
     # Se non valido, chiede una volta con il motivo
     if not valido:
         risposta2 = chiedi('piano non valido: ' + motivo)
-        piano = _json_da_risposta(risposta2)
+        piano = primo_json(risposta2)
         valido, motivo = _convalida_piano(piano, list(agenti.keys()), max_compiti)
     
     # Se ancora non valido, esito aiuto
