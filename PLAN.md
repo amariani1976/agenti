@@ -4,6 +4,7 @@ ramo: ai/agente-ciclo
 modello: esecutore
 verifica_globale: timeout 200 python3 -m unittest tests/test_agente.py tests/test_coda.py tests/test_misura.py tests/test_ciclo.py tests/test_esecuzione.py
 accettazione: cd piani && timeout 120 python3 -m unittest test_revisore_regole
+collaudi: 1
 ---
 # Piano: il revisore controlla come è scritto il codice
 
