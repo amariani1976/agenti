@@ -1,10 +1,11 @@
 ---
-stato: in-esecuzione
+stato: completato
 ramo: ai/limiti-proxy
 modello: qwen35-9b-nopensiero
 modello_pensiero: qwen35-9b-pensiero
 verifica_globale: timeout 300 python3 -m unittest discover -s tests
 collaudi: 1
+collaudo: superato
 ---
 # Piano: limiti del proxy validi per qualunque modello
 
