@@ -1,5 +1,5 @@
 ---
-stato: approvato
+stato: in-esecuzione
 ramo: ai/letture-pubbliche
 modello: esecutore
 verifica_globale: timeout 300 python3 -m unittest discover -s tests
