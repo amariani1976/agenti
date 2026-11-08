@@ -11,7 +11,7 @@ oggi ferma solo le chiamate identiche; un modello può girare a vuoto anche con 
 pezzi diversi). Si aggiunge un tetto di chiamate agli strumenti per turno e il tetto delle risposte preso dal profilo
 del modello richiesto (`modelli.json` di AI-VM). Il test è già scritto e provato in `piani/limiti/test_limiti.py`.
 
-- [ ] 1. Tetto di chiamate per turno e tetto delle risposte dal profilo
+- [x] 1. Tetto di chiamate per turno e tetto delle risposte dal profilo
   File: `coda/guardia.py`, `coda/proxy.py`, `tests/test_limiti.py`
   Cosa fare: prima copia il test con `cp piani/limiti/test_limiti.py tests/test_limiti.py` e non modificarlo. Docstring e commenti in italiano.
   1. `coda/guardia.py`, tre funzioni nuove: `troppe_chiamate(messaggi, massimo)` — `False` se `messaggi` è vuoto/`None` o `massimo` è falso; altrimenti conta le chiamate (`tool_calls`, non i messaggi) dei messaggi `assistant` dall'ultimo messaggio con `role` `user` in poi (scorrendo all'indietro fino a quello) e restituisce `True` se sono almeno `massimo`; `carica_profili(percorso)` — il dict del file JSON se ha `profili` dict, altrimenti `None` (anche se il file manca o non è JSON); `tetto_profilo(profili, modello)` — `None` se `profili` è `None` o il modello non è in nessun profilo; `risposta_max` se `modello` è `senza_pensiero` di un profilo; se è `con_pensiero`, `risposta_max_pensiero` se c'è, altrimenti `risposta_max`;

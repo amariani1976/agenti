@@ -143,3 +143,71 @@ def con_tetto(dati, tetto):
     if 'max_tokens' not in copia and 'max_completion_tokens' not in copia:
         copia['max_tokens'] = tetto
     return copia
+
+
+def troppe_chiamate(messaggi, massimo):
+    """Verifica se ci sono troppe chiamate agli strumenti nel turno corrente.
+    
+    Conta le tool_calls dai messaggi assistant dall'ultimo messaggio user in poi.
+    Restituisce True se il numero di chiamate è almeno 'massimo', False altrimenti.
+    Restituisce False se messaggi è vuoto/None o massimo è falso (0 o None).
+    """
+    if not messaggi or not massimo:
+        return False
+    # Scorre all'indietro per trovare l'ultimo messaggio user
+    ultimo_user = -1
+    for i in range(len(messaggi) - 1, -1, -1):
+        if messaggi[i].get('role') == 'user':
+            ultimo_user = i
+            break
+    # Se non c'è un messaggio user, considera tutti i messaggi assistant
+    inizio = 0 if ultimo_user == -1 else ultimo_user + 1
+    # Conta le tool_calls dai messaggi assistant dopo l'ultimo user
+    chiamate = 0
+    for m in messaggi[inizio:]:
+        if m.get('role') == 'assistant' and m.get('tool_calls'):
+            chiamate += len(m['tool_calls'])
+    return chiamate >= massimo
+
+
+def carica_profili(percorso):
+    """Carica i profili da un file JSON.
+    
+    Restituisce il dict del file se ha una chiave 'profili' con valore dict,
+    altrimenti None (anche se il file manca o non è JSON valido).
+    """
+    try:
+        with open(percorso, 'r') as f:
+            dati = json.load(f)
+        if isinstance(dati, dict) and 'profili' in dati and isinstance(dati['profili'], dict):
+            return dati
+        return None
+    except (FileNotFoundError, json.JSONDecodeError, TypeError):
+        return None
+
+
+def tetto_profilo(dati, modello):
+    """Ottiene il tetto di risposta dal profilo del modello richiesto.
+    
+    dati è il dict completo (es. da modelli.json) che ha una chiave 'profili'.
+    Restituisce None se dati è None, non ha 'profili', o il modello non è in nessun profilo.
+    Se il modello è 'senza_pensiero' di un profilo, restituisce risposta_max.
+    Se è 'con_pensiero', restituisce risposta_max_pensiero se esiste,
+    altrimenti risposta_max.
+    """
+    if dati is None:
+        return None
+    profili = dati.get('profili')
+    if profili is None or not isinstance(profili, dict):
+        return None
+    for profilo in profili.values():
+        if not isinstance(profilo, dict):
+            continue
+        if modello == profilo.get('senza_pensiero'):
+            return profilo.get('risposta_max')
+        if modello == profilo.get('con_pensiero'):
+            risposta = profilo.get('risposta_max_pensiero')
+            if risposta is not None:
+                return risposta
+            return profilo.get('risposta_max')
+    return None
