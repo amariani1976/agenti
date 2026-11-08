@@ -21,6 +21,8 @@ class Gestore(BaseHTTPRequestHandler):
     upstream = None
     attesa_max = 600
     tetto = None
+    max_chiamate = None
+    profili = None
 
     def log_message(self, *a):
         pass
@@ -95,10 +97,32 @@ class Gestore(BaseHTTPRequestHandler):
             else:
                 return self._json(200, guardia.chiusura(dati))
             return
-        # Applica tetto se impostato
-        if self.tetto:
-            dati = guardia.con_tetto(dati, self.tetto)
-            corpo = json.dumps(dati).encode()
+        # Controllo troppe chiamate per turno
+        if guardia.troppe_chiamate(dati.get('messages'), self.max_chiamate):
+            stream = dati.get('stream', False)
+            if stream:
+                testo = guardia.chiusura_sse(dati)
+                b = testo.encode()
+                self.send_response(200)
+                self.send_header('Content-Type', 'text/event-stream')
+                self.send_header('Content-Length', str(len(b)))
+                self.end_headers()
+                self.wfile.write(b)
+            else:
+                return self._json(200, guardia.chiusura(dati))
+            return
+        # Applica tetto dal profilo o quello impostato
+        modello = dati.get('model')
+        tetto = guardia.tetto_profilo(self.profili, modello) if modello is not None else None
+        if tetto is None:
+            tetto = self.tetto
+        # Crea corpo prima di applicare il tetto, così è sempre definito
+        corpo = json.dumps(dati).encode()
+        if tetto is not None:
+            # Verifica che tetto sia numerico
+            if isinstance(tetto, (int, float)):
+                dati = guardia.con_tetto(dati, tetto)
+                corpo = json.dumps(dati).encode()
         bisogno = int(self.headers.get('X-Contesto') or stima.stima(dati))
         priorita = self.headers.get('X-Priorita', 'normale')
         try:
@@ -113,16 +137,22 @@ class Gestore(BaseHTTPRequestHandler):
             self.coda.esci(biglietto)
 
 
-def crea(coda, upstream, host='127.0.0.1', porta=9393, attesa_max=600, tetto=None):
-    g = type('G', (Gestore,), {'coda': coda, 'upstream': upstream, 'attesa_max': attesa_max, 'tetto': tetto})
+def crea(coda, upstream, host='127.0.0.1', porta=9393, attesa_max=600, tetto=None, max_chiamate=None, profili=None):
+    g = type('G', (Gestore,), {'coda': coda, 'upstream': upstream, 'attesa_max': attesa_max, 'tetto': tetto, 'max_chiamate': max_chiamate, 'profili': profili})
     return ThreadingHTTPServer((host, porta), g)
 
 
 def main():
     coda = ammissione.Coda(int(os.environ.get('CODA_CAPACITA', '186000')), int(os.environ.get('CODA_SLOT', '4')))
     tetto = int(os.environ.get('CODA_TETTO', '0')) or None
+    # Se l'env è '0', diventa None (disabilita il limite), non 0
+    max_chiamate = int(os.environ.get('CODA_MAX_CHIAMATE', '40')) or None
+    profili = guardia.carica_profili(os.environ.get('CODA_PROFILI', '/opt/ai-vm/modelli.json'))
+    # Log per debug se il caricamento fallisce
+    if profili is None and os.environ.get('CODA_PROFILI'):
+        sys.stderr.write('Avviso: profili non caricati da %s\n' % os.environ.get('CODA_PROFILI'))
     srv = crea(coda, os.environ.get('CODA_UPSTREAM', 'http://10.0.0.100:9292'), os.environ.get('CODA_HOST', '127.0.0.1'),
-               int(os.environ.get('CODA_PORTA', '9393')), tetto=tetto)
+               int(os.environ.get('CODA_PORTA', '9393')), tetto=tetto, max_chiamate=max_chiamate, profili=profili)
     srv.serve_forever()
 
 
