@@ -1,9 +1,10 @@
 ---
-stato: in-esecuzione
+stato: completato
 ramo: ai/guardia
 modello: esecutore
 verifica_globale: timeout 300 python3 -m unittest discover -s tests
 collaudi: 1
+collaudo: superato
 ---
 # Piano: guardia delle chiamate ripetute e tetto delle risposte nel proxy della coda
 
