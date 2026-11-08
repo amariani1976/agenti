@@ -12,7 +12,7 @@ riconosce la ripetizione e risponde da sé «lavoro concluso», senza strumenti:
 In più un tetto alla lunghezza delle risposte, solo se la richiesta non lo indica e solo se acceso con `CODA_TETTO`.
 Il test è già scritto e provato in `piani/guardia/test_guardia.py`.
 
-- [ ] 1. Modulo guardia e collegamento nel proxy
+- [x] 1. Modulo guardia e collegamento nel proxy
   File: `coda/guardia.py`, `coda/proxy.py`, `tests/test_guardia.py`
   Cosa fare: prima copia il test con `cp piani/guardia/test_guardia.py tests/test_guardia.py` e non modificarlo. Python 3, solo libreria standard, docstring e commenti in italiano.
   1. `coda/guardia.py`: costante `TESTO` con la frase di chiusura («Ho già eseguito la stessa operazione più volte con lo stesso risultato: il lavoro è concluso.»);

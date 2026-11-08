@@ -8,6 +8,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import ammissione  # noqa: E402
+import guardia  # noqa: E402
 import misura  # noqa: E402
 import stima  # noqa: E402
 
@@ -19,6 +20,7 @@ class Gestore(BaseHTTPRequestHandler):
     coda = None
     upstream = None
     attesa_max = 600
+    tetto = None
 
     def log_message(self, *a):
         pass
@@ -79,6 +81,24 @@ class Gestore(BaseHTTPRequestHandler):
             dati = json.loads(corpo or b'{}')
         except ValueError:
             return self._json(400, {'error': {'message': 'JSON non valido'}})
+        # Controllo ripetizione prima di entrare in coda
+        if guardia.ripetizione(dati.get('messages')):
+            stream = dati.get('stream', False)
+            if stream:
+                testo = guardia.chiusura_sse(dati)
+                b = testo.encode()
+                self.send_response(200)
+                self.send_header('Content-Type', 'text/event-stream')
+                self.send_header('Content-Length', str(len(b)))
+                self.end_headers()
+                self.wfile.write(b)
+            else:
+                return self._json(200, guardia.chiusura(dati))
+            return
+        # Applica tetto se impostato
+        if self.tetto:
+            dati = guardia.con_tetto(dati, self.tetto)
+            corpo = json.dumps(dati).encode()
         bisogno = int(self.headers.get('X-Contesto') or stima.stima(dati))
         priorita = self.headers.get('X-Priorita', 'normale')
         try:
@@ -93,15 +113,16 @@ class Gestore(BaseHTTPRequestHandler):
             self.coda.esci(biglietto)
 
 
-def crea(coda, upstream, host='127.0.0.1', porta=9393, attesa_max=600):
-    g = type('G', (Gestore,), {'coda': coda, 'upstream': upstream, 'attesa_max': attesa_max})
+def crea(coda, upstream, host='127.0.0.1', porta=9393, attesa_max=600, tetto=None):
+    g = type('G', (Gestore,), {'coda': coda, 'upstream': upstream, 'attesa_max': attesa_max, 'tetto': tetto})
     return ThreadingHTTPServer((host, porta), g)
 
 
 def main():
     coda = ammissione.Coda(int(os.environ.get('CODA_CAPACITA', '186000')), int(os.environ.get('CODA_SLOT', '4')))
+    tetto = int(os.environ.get('CODA_TETTO', '0')) or None
     srv = crea(coda, os.environ.get('CODA_UPSTREAM', 'http://10.0.0.100:9292'), os.environ.get('CODA_HOST', '127.0.0.1'),
-               int(os.environ.get('CODA_PORTA', '9393')))
+               int(os.environ.get('CODA_PORTA', '9393')), tetto=tetto)
     srv.serve_forever()
 
 
