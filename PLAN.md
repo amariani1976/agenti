@@ -1,9 +1,10 @@
 ---
-stato: in-esecuzione
+stato: completato
 ramo: ai/letture-pubbliche
 modello: esecutore
 verifica_globale: timeout 300 python3 -m unittest discover -s tests
 collaudi: 1
+collaudo: superato
 ---
 # Piano: le tre letture del revisore diventano una costante pubblica
 
