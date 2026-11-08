@@ -1,9 +1,10 @@
 ---
-stato: in-esecuzione
+stato: completato
 ramo: ai/modello-scelto
 modello: esecutore
 verifica_globale: timeout 300 python3 -m unittest discover -s tests
 collaudi: 1
+collaudo: superato
 ---
 # Piano: il modello dell'agente si sceglie con AGENTE_MODELLO
 
