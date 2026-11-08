@@ -157,6 +157,9 @@ def troppe_chiamate(messaggi, massimo):
     # Scorre all'indietro per trovare l'ultimo messaggio user
     ultimo_user = -1
     for i in range(len(messaggi) - 1, -1, -1):
+        # Gestione messaggio non-dizionario (es. None o stringa)
+        if not isinstance(messaggi[i], dict):
+            continue
         if messaggi[i].get('role') == 'user':
             ultimo_user = i
             break
@@ -165,8 +168,15 @@ def troppe_chiamate(messaggi, massimo):
     # Conta le tool_calls dai messaggi assistant dopo l'ultimo user
     chiamate = 0
     for m in messaggi[inizio:]:
+        # Gestione messaggio non-dizionario e tool_calls non-lista
+        if not isinstance(m, dict):
+            continue
         if m.get('role') == 'assistant' and m.get('tool_calls'):
-            chiamate += len(m['tool_calls'])
+            tool_calls = m['tool_calls']
+            # Gestione caso in cui tool_calls sia None invece di lista
+            if not isinstance(tool_calls, list):
+                continue
+            chiamate += len(tool_calls)
     return chiamate >= massimo
 
 
@@ -179,6 +189,7 @@ def carica_profili(percorso):
     try:
         with open(percorso, 'r') as f:
             dati = json.load(f)
+        # json.load restituisce sempre un tipo, ma verifichiamo che sia dict con 'profili'
         if isinstance(dati, dict) and 'profili' in dati and isinstance(dati['profili'], dict):
             return dati
         return None
@@ -206,8 +217,6 @@ def tetto_profilo(dati, modello):
         if modello == profilo.get('senza_pensiero'):
             return profilo.get('risposta_max')
         if modello == profilo.get('con_pensiero'):
-            risposta = profilo.get('risposta_max_pensiero')
-            if risposta is not None:
-                return risposta
-            return profilo.get('risposta_max')
+            # risposta_max_pensiero se esiste, altrimenti risposta_max
+            return profilo.get('risposta_max_pensiero') or profilo.get('risposta_max')
     return None
