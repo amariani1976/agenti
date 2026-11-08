@@ -10,6 +10,14 @@ import risposta
 primo_json = risposta.primo_json
 
 
+# Le tre letture del revisore; le usa anche il runner di AI-VM
+LETTURE = (
+    'Controlla che il compito sia fatto tutto: elenca le richieste una per una e di\' per ciascuna se il diff la soddisfa.',
+    'Cerca gli errori che si vedono solo quando il codice gira: metodi o attributi che non esistono sugli oggetti usati, file o flussi non chiusi, casi limite (vuoto, assente, errore), eccezioni non gestite.',
+    'Cerca i cambi oltre quello che il compito chiede: righe riscritte, traduzioni, commenti o nomi cambiati senza che il compito lo chieda; se il compito diceva di eseguire un comando, controlla che il risultato sia quello del comando.'
+)
+
+
 def _elenco(cartella):
     """Nomi relativi dei file tracciati e non tracciati (non ignorati), anche in sottocartelle."""
     nomi = set()
@@ -146,13 +154,8 @@ def revisore(compito, cartella, lancia):
     
     # Tre letture con compiti diversi
     letture = []
-    compiti = [
-        'Controlla che il compito sia fatto tutto: elenca le richieste una per una e di\' per ciascuna se il diff la soddisfa.',
-        'Cerca gli errori che si vedono solo quando il codice gira: metodi o attributi che non esistono sugli oggetti usati, file o flussi non chiusi, casi limite (vuoto, assente, errore), eccezioni non gestite.',
-        'Cerca i cambi oltre quello che il compito chiede: righe riscritte, traduzioni, commenti o nomi cambiati senza che il compito lo chieda; se il compito diceva di eseguire un comando, controlla che il risultato sia quello del comando.'
-    ]
     
-    for compito_lettura in compiti:
+    for compito_lettura in LETTURE:
         prompt = prompt_base + '\n\nCompito lettura: ' + compito_lettura
         try:
             codice, uscita = lancia(prompt, cartella)
