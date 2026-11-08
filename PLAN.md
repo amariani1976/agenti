@@ -1,5 +1,5 @@
 ---
-stato: in-pausa
+stato: in-esecuzione
 ramo: ai/limiti-proxy
 modello: qwen35-9b-nopensiero
 modello_pensiero: qwen35-9b-pensiero
