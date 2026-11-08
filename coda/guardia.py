@@ -43,9 +43,6 @@ def ripetizione(messaggi, volte=3):
         return False
     # Prendi le ultime 'volte' chiamate
     ultime_chiamate = chiamate[-volte:]
-    # Estrai la singola tool_call da ciascuna (devono averne esattamente una)
-    if len(ultime_chiamate) != len(ultime_chiamate):
-        pass  # controllo già fatto sopra
     # Verifica che ognuna abbia esattamente una tool_call
     for c in ultime_chiamate:
         if len(c['tool_calls']) != 1:
@@ -62,23 +59,20 @@ def ripetizione(messaggi, volte=3):
     for i in range(1, len(info)):
         if info[i] != primo:
             return False
-    # Verifica che i messaggi tool corrispondenti abbiano lo stesso contenuto
-    # Prendi gli ultimi 'volte' messaggi tool
-    messaggi_tool = [m for m in messaggi if m.get('role') == 'tool']
-    if len(messaggi_tool) < volte:
-        return False
-    ultimi_tool = messaggi_tool[-volte:]
-    # Per ciascuna chiamata, trova il tool corrispondente per tool_call_id e prendi il contenuto
+    # Per ciascuna chiamata, trova il tool message corrispondente per tool_call_id
+    # e verifica che abbiano lo stesso contenuto (non usare tutti i tool messages)
     contenuti = []
     for c in ultime_chiamate:
         tool_id = c['tool_calls'][0]['id']
-        # Trova il messaggio tool con tool_call_id corrispondente
-        for t in ultimi_tool:
-            if t.get('tool_call_id') == tool_id:
-                contenuti.append(t.get('content', ''))
+        # Cerca il tool message con tool_call_id ESATTO in TUTTI i messaggi tool
+        contenuto_trovato = None
+        for m in messaggi:
+            if m.get('role') == 'tool' and m.get('tool_call_id') == tool_id:
+                contenuto_trovato = m.get('content', '')
                 break
-        else:
+        if contenuto_trovato is None:
             return False
+        contenuti.append(contenuto_trovato)
     # Verifica che tutti i contenuti siano uguali (non gli ID, ma il contenuto del risultato)
     primo_contenuto = contenuti[0]
     for c in contenuti[1:]:
