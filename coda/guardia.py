@@ -193,7 +193,7 @@ def carica_profili(percorso):
         if isinstance(dati, dict) and 'profili' in dati and isinstance(dati['profili'], dict):
             return dati
         return None
-    except (FileNotFoundError, json.JSONDecodeError, TypeError):
+    except (FileNotFoundError, json.JSONDecodeError, TypeError, PermissionError):
         return None
 
 
@@ -218,5 +218,5 @@ def tetto_profilo(dati, modello):
             return profilo.get('risposta_max')
         if modello == profilo.get('con_pensiero'):
             # risposta_max_pensiero se esiste, altrimenti risposta_max
-            return profilo.get('risposta_max_pensiero') or profilo.get('risposta_max')
+            return profilo.get('risposta_max_pensiero') if profilo.get('risposta_max_pensiero') is not None else profilo.get('risposta_max')
     return None
