@@ -52,6 +52,8 @@ Claude lo approva o indica cosa cambiare, approvato parte da solo); il runner us
 
 Decisione del 2026-10-31 (D-A3): la KB sta **insieme all'engine** su Unraid, in un **container separato** (`kb`)
 installato e aggiornato con `motore-ai`: si può ricostruire il motore senza fermare la KB né toccarne i dati.
+**Dal 2026-11-09 il codice della KB (servizio, curatore, test) sta nel repository `ai-vm`, cartella `kb/`, insieme al
+motore llama-swap** (`bin/ricrea-unraid kb`); qui non c'è più.
 
 - **File (fonte unica):** Markdown sotto git nella share `/mnt/user/kb`, apribile da Obsidian.
   Cartelle: `inbox/` (scrivono gli agenti), `progetti/`, `decisioni/`, `lezioni/`, `persone/`, …
