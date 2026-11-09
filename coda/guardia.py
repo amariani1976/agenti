@@ -283,3 +283,19 @@ def accorda_coda(coda, applicato):
         coda.capacita, coda.slot_max = capacita, slot
         coda.cv.notify_all()
     return True
+
+
+def modelli_generici(elenco, applicato):
+    """/v1/models del motore più i nomi generici, con il contesto del modello caricato (meta.n_ctx, come llama.cpp):
+    chi chiede un nome generico (Hermes) legge da qui il contesto, senza scriverlo nella sua configurazione."""
+    try:
+        with open(applicato) as f:
+            contesto = int(json.load(f)['contesto'])
+    except (OSError, ValueError, KeyError, TypeError):
+        return elenco
+    dati = dict(elenco) if isinstance(elenco, dict) else {'object': 'list'}
+    voci = [m for m in dati.get('data', []) if isinstance(m, dict) and m.get('id') not in GENERICI]
+    voci += [{'id': nome, 'object': 'model', 'owned_by': 'ai-vm', 'meta': {'n_ctx': contesto}, 'context_length': contesto}
+             for nome in GENERICI]
+    dati['data'] = voci
+    return dati

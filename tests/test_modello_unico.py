@@ -98,6 +98,20 @@ class Proxy(unittest.TestCase):
         self.assertEqual(self.chiedi('hermes'), ('g-no', 300))
 
 
+class ModelliGenerici(unittest.TestCase):
+    def test_contesto_del_modello_caricato(self):
+        d = tempfile.mkdtemp()
+        p = os.path.join(d, 'applicato.json')
+        elenco = {'object': 'list', 'data': [{'id': 'qwen35-9b'}]}
+        self.assertEqual(guardia.modelli_generici(elenco, p), elenco, 'senza valori letti nulla di inventato')
+        with open(p, 'w') as f:
+            json.dump({'contesto': 262144, 'parallelo': 1}, f)
+        n = guardia.modelli_generici(elenco, p)
+        ids = [m['id'] for m in n['data']]
+        self.assertEqual(ids, ['qwen35-9b', 'esecutore', 'esecutore-pensiero', 'hermes'])
+        self.assertEqual(n['data'][-1]['meta']['n_ctx'], 262144)
+
+
 class AccordaCoda(unittest.TestCase):
     def test_dai_valori_del_motore(self):
         d = tempfile.mkdtemp()

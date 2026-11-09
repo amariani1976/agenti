@@ -74,7 +74,18 @@ class Gestore(BaseHTTPRequestHandler):
     def do_GET(self):
         if self.path == '/coda/stato':
             return self._json(200, self.coda.stato())
+        if self.path.split('?')[0] == '/v1/models' and self.applicato:
+            return self._modelli()
         self._inoltra(None)
+
+    def _modelli(self):
+        """Elenco del motore più i nomi generici con il contesto del modello caricato."""
+        try:
+            with urllib.request.urlopen(self.upstream.rstrip('/') + '/v1/models', timeout=30) as r:
+                elenco = json.load(r)
+        except (urllib.error.URLError, OSError, ValueError):
+            elenco = {'object': 'list', 'data': []}
+        return self._json(200, guardia.modelli_generici(elenco, self.applicato))
 
     def do_POST(self):
         corpo = self.rfile.read(int(self.headers.get('Content-Length') or 0))
