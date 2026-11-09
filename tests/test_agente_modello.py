@@ -1,5 +1,5 @@
-"""Il modello dell'agente si sceglie con AGENTE_MODELLO (prove di modelli diversi col banco degli agenti): vale per tutte
-le chiamate, revisione compresa; di serie resta esecutore-pensiero; un nome non valido si rifiuta prima di lanciare."""
+"""L'agente chiede sempre il nome generico esecutore-pensiero, per tutte le chiamate: il modello vero si sceglie solo in
+/opt/ai-vm/modelli.json (lo traduce il proxy). Nessuna variabile d'ambiente lo cambia."""
 import os
 import sys
 import unittest
@@ -27,24 +27,13 @@ class Modello(Catena):
         self.assertTrue(chiamate)
         self.assertEqual({c.split()[-1] for c in chiamate}, {'esecutore-pensiero'})
 
-    def test_scelto_per_tutte_le_chiamate(self):
+    def test_variabile_ignorata(self):
         self.env['AGENTE_MODELLO'] = 'ornith-9b-q8'
         r = self.lancia()
         self.assertEqual(r.returncode, 0, r.stderr[-800:])
         chiamate = self.chiamate_agente()
         self.assertGreaterEqual(len(chiamate), 2, 'programmatore e revisione')
-        self.assertEqual({c.split()[-1] for c in chiamate}, {'ornith-9b-q8'})
-
-    def test_nome_non_valido(self):
-        for nome in ('a b', 'x;rm -rf /', '-p', ''):
-            self.env['AGENTE_MODELLO'] = nome
-            r = self.lancia()
-            if nome == '':
-                self.assertEqual(r.returncode, 0, 'vuoto vale come non impostato')
-                continue
-            self.assertEqual(r.returncode, 2, nome)
-            self.assertIn('AGENTE_MODELLO', r.stderr)
-            self.assertEqual(self.chiamate_agente(), [], nome)
+        self.assertEqual({c.split()[-1] for c in chiamate}, {'esecutore-pensiero'})
 
 
 # I test della catena si provano già nel loro file: qui non si ripetono.

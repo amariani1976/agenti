@@ -16,7 +16,6 @@ DEFAULT_RADICE = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
 # Regex per nome valido: inizia con lettera minuscola, poi 0-40 caratteri (lettera minuscola, cifra, trattino)
 NOME_VALIDO = re.compile(r'^[a-z][a-z0-9-]{0,40}$')
 # Regex per nome modello: inizia con lettera o cifra, poi 0-100 caratteri (lettera, cifra, punto, trattino basso, due punti, slash, trattino)
-NOME_MODELLO = re.compile(r'^[A-Za-z0-9][A-Za-z0-9._:/-]{0,100}\Z')
 
 
 def _profilo_dir(radice, nome):
@@ -25,19 +24,9 @@ def _profilo_dir(radice, nome):
 
 
 def modello_scelto():
-    """Restituisce il modello da usare per l'agente.
-    
-    Legge la variabile d'ambiente AGENTE_MODELLO. Se assente o vuota,
-    restituisce 'esecutore-pensiero'. Se presente ma non valida,
-    scrive su stderr e esce con codice 2.
-    """
-    nome = os.environ.get('AGENTE_MODELLO', '')
-    if not nome:
-        return 'esecutore-pensiero'
-    if not NOME_MODELLO.match(nome):
-        print('AGENTE_MODELLO non valido', file=sys.stderr)
-        sys.exit(2)
-    return nome
+    """Nome generico del modello: il proxy lo traduce nel modello attivo di /opt/ai-vm/modelli.json, l'unico posto dove
+    si sceglie il modello (nessuna variabile d'ambiente o scelta per agente)."""
+    return 'esecutore-pensiero'
 
 
 def _strumenti(radice, nome):

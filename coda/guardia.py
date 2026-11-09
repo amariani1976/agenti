@@ -220,3 +220,18 @@ def tetto_profilo(dati, modello):
             # risposta_max_pensiero se esiste, altrimenti risposta_max
             return profilo.get('risposta_max_pensiero') if profilo.get('risposta_max_pensiero') is not None else profilo.get('risposta_max')
     return None
+
+
+# Nomi generici usati da runner, agenti, esecutore e Hermes: il proxy li traduce nel modello attivo di modelli.json,
+# l'unico posto dove si sceglie il modello. Gli altri nomi passano invariati.
+GENERICI = {'esecutore': 'senza_pensiero', 'esecutore-pensiero': 'con_pensiero', 'hermes': 'con_pensiero'}
+
+
+def risolvi_modello(dati, modello):
+    """Nome reale per un nome generico secondo il profilo attivo; altrimenti il nome ricevuto."""
+    if dati is None or modello not in GENERICI:
+        return modello
+    profilo = dati.get('profili', {}).get(dati.get('attivo'))
+    if not isinstance(profilo, dict):
+        return modello
+    return profilo.get(GENERICI[modello]) or profilo.get('senza_pensiero') or modello

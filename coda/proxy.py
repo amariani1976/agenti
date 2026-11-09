@@ -83,37 +83,24 @@ class Gestore(BaseHTTPRequestHandler):
             dati = json.loads(corpo or b'{}')
         except ValueError:
             return self._json(400, {'error': {'message': 'JSON non valido'}})
-        # Controllo ripetizione prima di entrare in coda
-        if guardia.ripetizione(dati.get('messages')):
-            stream = dati.get('stream', False)
-            if stream:
-                testo = guardia.chiusura_sse(dati)
-                b = testo.encode()
-                self.send_response(200)
-                self.send_header('Content-Type', 'text/event-stream')
-                self.send_header('Content-Length', str(len(b)))
-                self.end_headers()
-                self.wfile.write(b)
-            else:
+        # Ripetizione o troppe chiamate per turno: si chiude il turno senza passare dal motore
+        if guardia.ripetizione(dati.get('messages')) or guardia.troppe_chiamate(dati.get('messages'), self.max_chiamate):
+            if not dati.get('stream', False):
                 return self._json(200, guardia.chiusura(dati))
+            b = guardia.chiusura_sse(dati).encode()
+            self.send_response(200)
+            self.send_header('Content-Type', 'text/event-stream')
+            self.send_header('Content-Length', str(len(b)))
+            self.end_headers()
+            self.wfile.write(b)
             return
-        # Controllo troppe chiamate per turno
-        if guardia.troppe_chiamate(dati.get('messages'), self.max_chiamate):
-            stream = dati.get('stream', False)
-            if stream:
-                testo = guardia.chiusura_sse(dati)
-                b = testo.encode()
-                self.send_response(200)
-                self.send_header('Content-Type', 'text/event-stream')
-                self.send_header('Content-Length', str(len(b)))
-                self.end_headers()
-                self.wfile.write(b)
-            else:
-                return self._json(200, guardia.chiusura(dati))
-            return
+        # Il modello si sceglie solo in modelli.json (riletto a ogni richiesta): i nomi generici diventano quello attivo
+        profili = guardia.carica_profili(self.profili) if isinstance(self.profili, str) else self.profili
+        if dati.get('model') is not None:
+            dati['model'] = guardia.risolvi_modello(profili, dati['model'])
         # Applica tetto dal profilo o quello impostato
         modello = dati.get('model')
-        tetto = guardia.tetto_profilo(self.profili, modello) if modello is not None else None
+        tetto = guardia.tetto_profilo(profili, modello) if modello is not None else None
         if tetto is None:
             tetto = self.tetto
         # Crea corpo prima di applicare il tetto, così è sempre definito
@@ -143,14 +130,18 @@ def crea(coda, upstream, host='127.0.0.1', porta=9393, attesa_max=600, tetto=Non
 
 
 def main():
-    coda = ammissione.Coda(int(os.environ.get('CODA_CAPACITA', '186000')), int(os.environ.get('CODA_SLOT', '4')))
+    # Capacità e richieste parallele dal profilo attivo (contesto e «parallelo» del motore); cambiando modello si
+    # riavvia il proxy (lo fa ai-vm-modello). Le variabili d'ambiente restano solo per le prove.
+    profili = os.environ.get('CODA_PROFILI', '/opt/ai-vm/modelli.json')   # percorso: riletto a ogni richiesta
+    dati = guardia.carica_profili(profili)
+    if dati is None:
+        sys.stderr.write('Avviso: profili non caricati da %s\n' % profili)
+    attivo = (dati or {}).get('profili', {}).get((dati or {}).get('attivo'), {})
+    capacita = int(os.environ.get('CODA_CAPACITA') or int(attivo.get('contesto', 186000) * 0.95))
+    coda = ammissione.Coda(capacita, int(os.environ.get('CODA_SLOT') or attivo.get('parallelo', 1)))
     tetto = int(os.environ.get('CODA_TETTO', '0')) or None
     # Se l'env è '0', diventa None (disabilita il limite), non 0
-    max_chiamate = int(os.environ.get('CODA_MAX_CHIAMATE', '40')) or None
-    profili = guardia.carica_profili(os.environ.get('CODA_PROFILI', '/opt/ai-vm/modelli.json'))
-    # Log per debug se il caricamento fallisce
-    if profili is None and os.environ.get('CODA_PROFILI'):
-        sys.stderr.write('Avviso: profili non caricati da %s\n' % os.environ.get('CODA_PROFILI'))
+    max_chiamate = int(os.environ.get('CODA_MAX_CHIAMATE', '0')) or None   # spento: i cicli produttivi non si fermano (utente, 2026-11-08)
     srv = crea(coda, os.environ.get('CODA_UPSTREAM', 'http://10.0.0.100:9292'), os.environ.get('CODA_HOST', '127.0.0.1'),
                int(os.environ.get('CODA_PORTA', '9393')), tetto=tetto, max_chiamate=max_chiamate, profili=profili)
     srv.serve_forever()
