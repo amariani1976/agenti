@@ -33,77 +33,20 @@ l'unica via pulita è una seconda GPU (§9, D-A6).
 
 ## 4. Agenti (pi)
 
-Ogni agente è **pi** (`@mariozechner/pi-coding-agent`, prompt di sistema minimo, 4 strumenti di base) con una propria
-cartella di configurazione (`PI_CODING_AGENT_DIR`), versionata in questo repository sotto `profili/<nome>/`:
+Ogni agente è **pi** (`@mariozechner/pi-coding-agent`, prompt di sistema minimo, 4 strumenti di base) e gira
+**sempre** come utente `esecutore` attraverso `/opt/ai-vm/libexec/esegui-passo`, chiuso in `/srv/progetti`, con
+l'unico profilo `~esecutore/.pi/esecutore` (generato da `ai-vm-modello`). I ruoli (programmatore, revisore,
+ricercatore) sono prompt diversi sullo stesso agente (`ciclo/ruoli.py`), non profili separati. Aggiornato il
+2026-11-09: tolti i profili per agente e il lancio diretto di pi come utente `hermes`.
 
-```
-profili/<nome>/
-  models.json     fornitore e modello (llama-swap, o Anthropic per il coordinatore)
-  settings.json   modello predefinito, ragionamento, opzioni
-  AGENTS.md       istruzioni del ruolo (brevi)
-  skills/         SOLO le skill di quel ruolo (standard Agent Skills, caricate su richiesta)
-  strumenti       elenco per --tools (es. read,write,edit,bash oppure solo read,bash)
-```
-
-| Agente | Modello | Strumenti | Skill |
-|---|---|---|---|
-| `programmatore` | il vincitore del banco, in GPU, contesto 64k | read, write, edit, bash | kb, test del progetto, regole del repository |
-| `coordinatore` | Claude (piano Max/API) o locale piccolo (D-A2) | read, bash | kb, `agente` (chiamare gli altri), stato dei progetti |
-| `immagini` | modello di visione + ComfyUI per generare | read, bash | kb, comfyui |
-| `voce` | Whisper (ascolto) + Kokoro/Piper (parlato), CPU di Unraid | bash | voce |
-
-Comando unico sulla AI-VM: `agente <nome> [--cartella DIR] "<compito>"` → esegue `pi -p --no-session` con la cartella
-del profilo, gli strumenti e il modello del ruolo; stampa il risultato. Usabile da Claude Code (Bash), da Hermes, dagli
-altri agenti (il coordinatore lo ha come skill) e dall'esecutore dei piani.
-
-## 4.1 Un solo modello, più agenti con capacità specifiche (decisione dell'utente, 2026-11-07)
-
-Tutti gli agenti usano **lo stesso modello** di produzione (alias `esecutore`/`esecutore-pensiero` di llama-swap, via
-`coda-gpu`); cambiano solo istruzioni, strumenti, skill e perimetro. Si usano uno o più agenti secondo il bisogno.
-Base comune a tutti: il **ciclo** (`ciclo/`), cioè il metodo del runner per un compito solo (verifica che deve
-passare, al massimo 3 tentativi con l'errore precedente, perimetro dei file con annullamento, lezioni dalla KB, esito
-chiaro), eseguito come utente `esecutore` con rete solo locale.
-
-| Agente | Capacità | Strumenti | Perimetro |
-|---|---|---|---|
-| `programmatore` | scrive codice finché la verifica passa | read, write, edit, bash | solo i file indicati |
-| `revisore` | legge un diff e i test, trova difetti, propone correzioni senza scriverle | read, bash | nessuna scrittura |
-| `ricercatore` | KB, poi SearXNG, poi salva in KB la sintesi | read, bash (kb, web) | solo `inbox/` della KB |
-| `orchestratore` | riceve il compito, lo divide, richiama gli altri agenti (anche più di uno, in sequenza), ne controlla gli esiti e decide i passi successivi | read, bash (`agente`) | nessuna scrittura diretta |
-
-Chi li usa: Claude (Bash) e Hermes (skill `agente` da Telegram) chiamano di solito l'`orchestratore`, che richiama gli altri; il runner dei piani usa direttamente il `programmatore`. L'orchestratore usa lo stesso modello: ogni agente richiamato è una chiamata in sequenza, mai in parallelo, perché la GPU ne regge una per volta.
-
-**Avvisi (richiesta dell'utente, 2026-11-07):** è l'orchestratore a svegliare Claude, senza timer: a compito finito e quando ha bisogno di aiuto (un agente esaurisce i tentativi, un esito non torna, una scelta non è sua) scrive una riga sulla FIFO `~/.local/state/ai-vm/orchestratore.avviso` con `lib/avviso.py` di ai-vm (`fatto`, `aiuto` o `fallito`, il compito e il motivo); Claude la ascolta con `progetto ascolta orchestratore`. Se il compito l'ha dato Hermes, lo stesso avviso va anche su Telegram.
-
-## 4.15 Come si scrive il codice (richiesta dell'utente, 2026-11-07)
-
-Vale per tutti gli agenti, e il revisore lo controlla come difetto, non come preferenza:
-- funzioni, classi e costanti stanno in **librerie** (moduli) e si **richiamano** dove servono; i programmi e le rotte restano sottili;
-- prima di scrivere una funzione si cerca se esiste già (grep nel progetto): si **riusa**, non si copia;
-- nessun blocco di codice duplicato: se due punti fanno la stessa cosa, la cosa va in una funzione comune;
-- una funzione fa una cosa sola, con nome chiaro e test;
-- ogni modulo nuovo ha il suo posto nella struttura esistente del progetto (stesse cartelle, stesso stile).
-
-Il compito di un passo resta piccolo (di solito un file da modificare): è il modo in cui il modello lavora meglio, non la forma del programma.
-
-## 4.2 Banco, soglie e rischi noti (2026-11-07)
-
-**Banco:** compiti veri dalla storia di git dei progetti (commit «AI-VM passo:», con il `PLAN.md` del commit padre: stato di partenza, compito, file, verifica), più compiti impossibili in cui l'agente deve chiedere aiuto. Campione da 30 per le prove intermedie, banco intero per il rilascio. **Riuscito vuol dire fatto bene** (richiesta dell'utente): verifica del passo e verifica generale del progetto verdi, revisione senza difetti sulle regole di §4.15, diff non sproporzionato rispetto alla soluzione originale. **Obiettivo dell'utente: 100% delle cose fatte bene.** Si misura su ciò che viene consegnato: nessun lavoro che non supera i controlli entra nel progetto (si ritenta con l'errore, si spezza, l'orchestratore chiama Claude, che corregge prima della consegna); ogni lavoro consegnato e non fatto bene è un difetto del sistema da correggere. Si misura a parte la quota che il modello fa bene da solo, da far crescere giro dopo giro. **Soglie di rilascio:** 100% dei consegnati fatti bene; quota del modello da solo almeno il 95%, altrimenti si dichiara il numero vero; zero uscite dal perimetro arrivate in fondo; compiti impossibili sempre con richiesta d'aiuto. Prima di costruire si misura la linea di base sul campione.
-
-**Rischi noti, detti prima (richiesta dell'utente: niente scoperte dell'ultimo minuto):**
-1. Il limite di capacità del modello: il ciclo non aggiunge capacità; il 95% potrebbe non essere raggiungibile sui compiti difficili. Si saprà dalla linea di base.
-2. La GPU regge un modello alla volta: il banco ferma il runner per ore.
-3. Ricerca su internet via SearXNG ancora da costruire.
-4. La modifica dei pesi probabilmente non servirà: finora nessun ciclo misurato.
-5. Icinga-Network resta in pausa finché gli agenti non superano il banco.
-6. Consumo di token della sessione unica di Claude.
+Modello: solo i nomi generici `esecutore` (senza ragionamento) ed `esecutore-pensiero` (dopo un errore); il proxy
+coda-gpu li traduce nel modello «attivo» di `/opt/ai-vm/modelli.json`, l'unico posto dove si sceglie.
 
 ## 5. Esecutore dei piani
 
-Oggi `esegui-passo` (root, `/opt/ai-vm/libexec`) chiama Hermes dell'utente `esecutore`. Si sostituisce quella sola riga
-con `agente programmatore --cartella <progetto>` (stesso utente, stessi limiti). Telegram, web e «avvia» restano a
-Hermes dell'utente `hermes`. Le lezioni del 2026-10-30/31 restano valide: passi piccoli, comandi pronti per i file
-grandi, verifiche che falliscono se il lavoro non c'è.
+Il runner dei piani e il comando `agente` (con verifica o orchestratore) usano lo stesso `esegui-passo` e la stessa
+regola: primo tentativo senza ragionamento, i successivi con. Hermes per i lavori sul codice usa `progetto piano`
+(Claude scrive test e piano, come in sessione) e poi `progetto avvia`.
 
 ## 6. Second brain (KB)
 

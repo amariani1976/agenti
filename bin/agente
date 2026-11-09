@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
-"""Esecutore del comando agente: avvia pi con un profilo specifico."""
+"""Comando agente: lavoro di un agente pi con verifica (--file e --verifica) o orchestratore. pi gira sempre come utente
+«esecutore» attraverso esegui-passo, con i nomi generici del modello (stessa logica del runner dei piani)."""
 import argparse
 import importlib.util
 import json
 import os
 import re
-import subprocess
 import sys
 
 # Predefiniti
@@ -15,12 +15,6 @@ DEFAULT_RADICE = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
 
 # Regex per nome valido: inizia con lettera minuscola, poi 0-40 caratteri (lettera minuscola, cifra, trattino)
 NOME_VALIDO = re.compile(r'^[a-z][a-z0-9-]{0,40}$')
-# Regex per nome modello: inizia con lettera o cifra, poi 0-100 caratteri (lettera, cifra, punto, trattino basso, due punti, slash, trattino)
-
-
-def _profilo_dir(radice, nome):
-    """Restituisce il percorso della cartella del profilo."""
-    return os.path.join(radice, 'profili', nome)
 
 
 def modello_scelto():
@@ -28,79 +22,6 @@ def modello_scelto():
     si sceglie il modello (nessuna variabile d'ambiente o scelta per agente). None: prima senza ragionamento, con
     ragionamento solo nei tentativi dopo un errore (lo decide Esecuzione dal prompt)."""
     return None
-
-
-def _strumenti(radice, nome):
-    """Legge gli strumenti dal file strumenti del profilo."""
-    path = os.path.join(_profilo_dir(radice, nome), 'strumenti')
-    if not os.path.exists(path):
-        return []
-    with open(path, 'r') as f:
-        return [s.strip() for s in f.read().strip().split(',') if s.strip()]
-
-
-def _skills(radice, nome):
-    """Restituisce la lista delle skill (cartelle con SKILL.md) in ordine alfabetico."""
-    skills_dir = os.path.join(_profilo_dir(radice, nome), 'skills')
-    if not os.path.isdir(skills_dir):
-        return []
-    result = []
-    for entry in os.listdir(skills_dir):
-        path = os.path.join(skills_dir, entry)
-        if os.path.isdir(path) and os.path.exists(os.path.join(path, 'SKILL.md')):
-            result.append((entry, path))
-    # Ordina per nome (prima parte del percorso)
-    result.sort(key=lambda x: x[0])
-    return [p for _, p in result]
-
-
-def comando(nome, compito, cartella, radice, pi=DEFAULT_PI):
-    """
-    Costruisce il comando per eseguire pi con il profilo specificato.
-
-    Args:
-        nome: nome del profilo (deve essere valido)
-        compito: il compito da eseguire
-        cartella: cartella di lavoro (cwd)
-        radice: radice del progetto (dove si trovano i profili)
-        pi: percorso al programma pi (default: DEFAULT_PI)
-
-    Returns:
-        tuple (argv, env, cwd) dove:
-        - argv: lista di argomenti per subprocess.run
-        - env: dizionario delle variabili d'ambiente
-        - cwd: cartella di lavoro
-
-    Raises:
-        ValueError: se il nome non è valido o il profilo non esiste
-    """
-    # Validazione nome
-    if not NOME_VALIDO.match(nome):
-        raise ValueError(f"nome non valido: '{nome}' (deve corrispondere a {NOME_VALIDO.pattern})")
-
-    profilo = _profilo_dir(radice, nome)
-    if not os.path.isdir(profilo):
-        raise ValueError(f"profilo non esistente: '{nome}'")
-
-    # Costruisci argv
-    argv = [pi, '-p', '--no-session', '--no-skills']
-
-    # Aggiungi skill in ordine alfabetico
-    for skill_path in _skills(radice, nome):
-        argv.extend(['--skill', skill_path])
-
-    # Aggiungi strumenti
-    tools = _strumenti(radice, nome)
-    if tools:
-        argv.extend(['--tools', ','.join(tools)])
-
-    # Aggiungi il compito
-    argv.append(' '.join(compito) if isinstance(compito, list) else compito)
-
-    # Ambiente con solo PI_CODING_AGENT_DIR
-    env = {'PI_CODING_AGENT_DIR': profilo}
-
-    return argv, env, cartella
 
 
 def _stampa_json(dato):
@@ -304,7 +225,7 @@ def _orchestratore(richiesta, cartella, radice):
 def main():
     """Main: parse degli argomenti e esecuzione del comando."""
     parser = argparse.ArgumentParser(
-        description='Esecutore del comando agente: avvia pi con un profilo specifico.',
+        description='Agente pi con verifica o orchestratore, sempre attraverso esegui-passo.',
         add_help=False
     )
     parser.add_argument('nome', nargs='?', help='nome del profilo')
@@ -359,8 +280,8 @@ def main():
         if not args.file:
             print('errore: --file richiesto con --verifica', file=sys.stderr)
             sys.exit(2)
-        if args.nome is None:
-            print('errore: nome del profilo richiesto', file=sys.stderr)
+        if args.nome is None or not NOME_VALIDO.match(args.nome):
+            print('errore: nome dell\'agente mancante o non valido', file=sys.stderr)
             sys.exit(2)
         if not args.compito:
             print('errore: compito richiesto', file=sys.stderr)
@@ -388,40 +309,9 @@ def main():
         else:
             sys.exit(1)
 
-    # Altrimenti usa il vecchio percorso
-    cartella = args.cartella
-    nome = args.nome
-    compito = args.compito
-
-    if nome is None:
-        print('errore: nome del profilo richiesto', file=sys.stderr)
-        sys.exit(1)
-
-    if not compito:
-        print('errore: compito richiesto', file=sys.stderr)
-        sys.exit(1)
-
-    # Determina la radice (default: cartella sopra bin/)
-    radice = os.environ.get('AGENTE_RADICE', DEFAULT_RADICE)
-    pi = os.environ.get('AGENTE_PI', DEFAULT_PI)
-
-    # Se --cartella non specificato, usa la cartella corrente
-    if cartella is None:
-        cartella = os.getcwd()
-
-    try:
-        argv, env, cwd = comando(nome, compito, cartella, radice, pi)
-    except ValueError as e:
-        print('errore: {0}'.format(e), file=sys.stderr)
-        sys.exit(1)
-
-    # Esegui pi con l'ambiente corrente più PI_CODING_AGENT_DIR e ne restituisce il codice di uscita
-    if not os.path.isdir(cwd):
-        print('errore: cartella inesistente: {0}'.format(cwd), file=sys.stderr)
-        sys.exit(1)
-
-    sys.exit(subprocess.run(argv, env=dict(os.environ, **env), cwd=cwd, stdin=subprocess.DEVNULL).returncode)   # pi -p non deve aspettare la tastiera
-
+    # Nessun percorso diretto: pi fuori da esegui-passo girerebbe come «hermes», fuori dal recinto dell'esecutore
+    print('errore: usa --file e --verifica (agente con verifica) oppure «orchestratore»', file=sys.stderr)
+    sys.exit(2)
 
 if __name__ == '__main__':
     main()

@@ -1,4 +1,4 @@
-"""Test del collaudo 1: ambiente e codice di uscita di bin/agente, riga di comando e ricerca di kb/kb.py."""
+"""Test del collaudo 1: riga di comando e ricerca di kb/kb.py."""
 import importlib.machinery
 import importlib.util
 import os
@@ -16,34 +16,6 @@ import kb  # noqa: E402
 
 AGENTE = os.path.join(QUI, '..', 'bin', 'agente')
 KBPY = os.path.join(QUI, '..', 'kb', 'kb.py')
-
-
-class AgenteMainTest(unittest.TestCase):
-    def setUp(self):
-        self.radice = tempfile.mkdtemp()
-        os.makedirs(os.path.join(self.radice, 'profili', 'prova'))
-        self.finto = os.path.join(self.radice, 'pi-finto')
-        with open(self.finto, 'w') as f:
-            f.write('#!/bin/sh\necho "$PI_CODING_AGENT_DIR|$HOME|$KB_DIR"\nexit 3\n')
-        os.chmod(self.finto, 0o755)
-
-    def tearDown(self):
-        shutil.rmtree(self.radice, ignore_errors=True)
-
-    def esegui(self, *argomenti):
-        env = dict(os.environ, AGENTE_PI=self.finto, AGENTE_RADICE=self.radice, HOME='/casa/prova', KB_DIR='/kb/prova')
-        return subprocess.run([sys.executable, AGENTE] + list(argomenti), env=env, stdout=subprocess.PIPE,
-                              stderr=subprocess.PIPE, universal_newlines=True)
-
-    def test_conserva_ambiente_e_codice_di_uscita(self):
-        r = self.esegui('prova', '--cartella', '/tmp', 'compito')
-        self.assertEqual(r.stdout.strip(), os.path.join(self.radice, 'profili', 'prova') + '|/casa/prova|/kb/prova')
-        self.assertEqual(r.returncode, 3)
-
-    def test_cartella_inesistente(self):
-        r = self.esegui('prova', '--cartella', os.path.join(self.radice, 'manca'), 'compito')
-        self.assertEqual(r.returncode, 1)
-        self.assertNotIn('Traceback', r.stderr)
 
 
 class KbCollaudoTest(unittest.TestCase):

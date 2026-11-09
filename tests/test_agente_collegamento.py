@@ -1,4 +1,4 @@
-"""bin/agente lanciato da un collegamento simbolico trova profili e moduli in ogni percorso (realpath in tutto il file)."""
+"""bin/agente lanciato da un collegamento simbolico trova i moduli in ogni percorso (realpath in tutto il file)."""
 import os
 import shutil
 import subprocess
@@ -27,11 +27,6 @@ class Collegamento(unittest.TestCase):
     def lancia(self, *argomenti):
         return subprocess.run([sys.executable, self.link] + list(argomenti), env=self.env, cwd=self.d,
                               stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True, timeout=60)
-
-    def test_percorso_semplice_trova_il_profilo(self):
-        r = self.lancia('programmatore', '--cartella', self.d, 'ciao')
-        self.assertEqual(r.returncode, 0, r.stderr[-500:])
-        self.assertIn('PI-FINTO', r.stdout)
 
     def test_orchestratore_trova_i_moduli(self):
         self.env['AGENTE_PROGETTI'] = self.d

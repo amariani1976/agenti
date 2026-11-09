@@ -1,64 +1,33 @@
-"""Test di bin/agente: profilo, strumenti, cartella di lavoro e variabile PI_CODING_AGENT_DIR."""
-import importlib.machinery
-import importlib.util
+"""bin/agente: nessun percorso diretto. pi gira solo attraverso esegui-passo (agente con verifica o orchestratore),
+come utente «esecutore» e con la stessa logica del runner dei piani."""
 import os
-import shutil
 import subprocess
 import sys
 import tempfile
 import unittest
 
-QUI = os.path.dirname(os.path.abspath(__file__))
-sys.dont_write_bytecode = True
-_l = importlib.machinery.SourceFileLoader('agente', os.path.join(QUI, '..', 'bin', 'agente'))
-A = importlib.util.module_from_spec(importlib.util.spec_from_loader('agente', _l))
-_l.exec_module(A)
+AGENTE = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'bin', 'agente')
 
 
-class AgenteTest(unittest.TestCase):
-    def setUp(self):
-        self.radice = tempfile.mkdtemp()
-        p = os.path.join(self.radice, 'profili', 'prova')
-        os.makedirs(p)
-        with open(os.path.join(p, 'strumenti'), 'w') as f:
-            f.write('read,bash\n')
-        for s in ('kb', 'test'):
-            os.makedirs(os.path.join(p, 'skills', s))
-            open(os.path.join(p, 'skills', s, 'SKILL.md'), 'w').close()
-        os.makedirs(os.path.join(p, 'skills', 'vuota'))
-
-    def tearDown(self):
-        shutil.rmtree(self.radice, ignore_errors=True)
-
-    def test_comando(self):
-        argv, env, cwd = A.comando('prova', 'fai X', '/tmp', self.radice, pi='/bin/pi')
-        sk = os.path.join(self.radice, 'profili', 'prova', 'skills')
-        self.assertEqual(argv, ['/bin/pi', '-p', '--no-session', '--no-skills',
-                                '--skill', os.path.join(sk, 'kb'), '--skill', os.path.join(sk, 'test'),
-                                '--tools', 'read,bash', 'fai X'])
-        self.assertEqual(env, {'PI_CODING_AGENT_DIR': os.path.join(self.radice, 'profili', 'prova')})
-        self.assertEqual(cwd, '/tmp')
-
-    def test_profilo_inesistente(self):
-        with self.assertRaises(ValueError):
-            A.comando('manca', 'x', '/tmp', self.radice, pi='/bin/pi')
-
-    def test_nome_non_valido(self):
-        with self.assertRaises(ValueError):
-            A.comando('../prova', 'x', '/tmp', self.radice, pi='/bin/pi')
-
-    def test_esegue_pi_finto(self):
-        finto = os.path.join(self.radice, 'pi-finto')
+class SenzaPercorsoDiretto(unittest.TestCase):
+    def lancia(self, *a):
+        finto = os.path.join(tempfile.mkdtemp(), 'pi-finto')
         with open(finto, 'w') as f:
-            f.write('#!/bin/sh\necho "$PI_CODING_AGENT_DIR|$*|$(pwd)"\n')
+            f.write('#!/bin/sh\necho PI-LANCIATO\n')
         os.chmod(finto, 0o755)
-        env = dict(os.environ, AGENTE_PI=finto, AGENTE_RADICE=self.radice)
-        r = subprocess.run([sys.executable, os.path.join(QUI, '..', 'bin', 'agente'), 'prova', '--cartella', '/tmp', 'compito'],
-                           env=env, stdout=subprocess.PIPE, universal_newlines=True)
-        self.assertEqual(r.returncode, 0)
-        self.assertEqual(r.stdout.strip(),
-                         os.path.join(self.radice, 'profili', 'prova') + '|-p --no-session --no-skills --skill {0}/kb --skill {0}/test --tools read,bash compito|/tmp'.format(
-                             os.path.join(self.radice, 'profili', 'prova', 'skills')))
+        return subprocess.run([sys.executable, AGENTE] + list(a), env=dict(os.environ, AGENTE_PI=finto),
+                              stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True, timeout=60)
+
+    def test_rifiutato(self):
+        r = self.lancia('programmatore', '--cartella', '/tmp', 'fai X')
+        self.assertEqual(r.returncode, 2)
+        self.assertIn('--verifica', r.stderr)
+        self.assertNotIn('PI-LANCIATO', r.stdout, 'pi non parte fuori da esegui-passo')
+
+    def test_nome_non_valido_con_verifica(self):
+        r = self.lancia('../x', '--cartella', '/tmp', '--file', 'a.py', '--verifica', 'true', 'fai X')
+        self.assertEqual(r.returncode, 2)
+        self.assertIn('non valido', r.stderr)
 
 
 if __name__ == '__main__':
