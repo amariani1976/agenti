@@ -44,9 +44,9 @@ coda-gpu li traduce nel modello «attivo» di `/opt/ai-vm/modelli.json`, l'unico
 
 ## 5. Esecutore dei piani
 
-Il runner dei piani e il comando `agente` (con verifica o orchestratore) usano lo stesso `esegui-passo` e la stessa
-regola: primo tentativo senza ragionamento, i successivi con. Hermes per i lavori sul codice usa `progetto piano`
-(Claude scrive test e piano, come in sessione) e poi `progetto avvia`.
+Un solo percorso, chiunque chieda (utente, Claude, Hermes): `progetto piano` (Claude scrive test e piano) e poi
+`progetto avvia`; il runner usa `esegui-passo` con la regola «primo tentativo senza ragionamento, i successivi con».
+`bin/agente` resta come libreria di prova dei ruoli, senza lanciatore nel PATH (tolto il 2026-11-09).
 
 ## 6. Second brain (KB)
 
