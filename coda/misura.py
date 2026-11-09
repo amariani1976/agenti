@@ -25,6 +25,14 @@ def ripetizione(testo, finestra=FINESTRA):
     return round(min(1.0, massimo * finestra / 2.0 / len(t) * 2), 3)
 
 
+def velocita(token, ms):
+    """Token al secondo dai timings di llama-server (None se mancano)."""
+    try:
+        return round(float(token) * 1000 / float(ms), 1) if token and ms else None
+    except (TypeError, ValueError):
+        return None
+
+
 class Osservatore:
     def __init__(self, richiesta, percorso):
         self.inizio = time.time()
@@ -38,6 +46,7 @@ class Osservatore:
         self.pensiero = 0
         self.fine = None
         self.uso = {}
+        self.tempi = {}         # timings di llama-server: token e millisecondi di richiesta e risposta
         self.stato = None
 
     def _testo(self, s):
@@ -61,7 +70,7 @@ class Osservatore:
         if o.get('usage'):
             self.uso = o['usage']
         if o.get('timings'):
-            self.uso.setdefault('timings', {k: o['timings'].get(k) for k in ('prompt_n', 'predicted_n', 'predicted_ms')})
+            self.tempi = {k: o['timings'].get(k) for k in ('prompt_n', 'prompt_ms', 'predicted_n', 'predicted_ms')}
 
     def dati(self, pezzo):
         try:
@@ -84,11 +93,13 @@ class Osservatore:
                 self._oggetto(json.loads(b''.join(self.corpo)))
         except Exception:
             pass
-        t = self.uso.get('timings') or {}
+        t = self.tempi
         voce = {'at': int(self.inizio), 'secondi': round(time.time() - self.inizio, 1), 'percorso': self.percorso,
                 'modello': self.modello, 'stato': stato, 'fine': self.fine, 'max_token': self.max_token,
                 'token_prompt': self.uso.get('prompt_tokens', t.get('prompt_n')),
                 'token_risposta': self.uso.get('completion_tokens', t.get('predicted_n')),
+                'tok_s_risposta': velocita(t.get('predicted_n'), t.get('predicted_ms')),
+                'tok_s_prompt': velocita(t.get('prompt_n'), t.get('prompt_ms')),
                 'caratteri_pensiero': self.pensiero, 'ripetizione': ripetizione(self.testo), 'coda': self.testo[-300:]}
         if errore:
             voce['errore'] = str(errore)[:200]

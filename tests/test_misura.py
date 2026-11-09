@@ -16,7 +16,7 @@ import misura  # noqa: E402
 import proxy  # noqa: E402
 
 PEZZI = [{'choices': [{'delta': {'reasoning_content': 'penso '}}]}, {'choices': [{'delta': {'content': 'ciao ' * 50}}]},
-         {'choices': [{'delta': {}, 'finish_reason': 'length'}], 'timings': {'prompt_n': 120, 'predicted_n': 51, 'predicted_ms': 900}}]
+         {'choices': [{'delta': {}, 'finish_reason': 'length'}], 'timings': {'prompt_n': 120, 'prompt_ms': 60, 'predicted_n': 51, 'predicted_ms': 900}}, {'choices': [], 'usage': {'prompt_tokens': 120, 'completion_tokens': 51}}]
 
 
 class Finto(BaseHTTPRequestHandler):
@@ -53,7 +53,12 @@ class Misura(unittest.TestCase):
         v = json.loads(open(REG).read().splitlines()[-1])
         self.assertEqual((v['modello'], v['fine'], v['token_prompt'], v['token_risposta'], v['stato']), ('esecutore', 'length', 120, 51, 200))
         self.assertEqual(v['caratteri_pensiero'], 6)
+        self.assertEqual((v['tok_s_risposta'], v['tok_s_prompt']), (56.7, 2000.0), 'velocità dai timings, anche se usage arriva dopo')
         self.assertGreater(v['ripetizione'], 0.8)
+
+    def test_velocita_senza_dati(self):
+        self.assertIsNone(misura.velocita(None, 900))
+        self.assertIsNone(misura.velocita(51, 0))
 
     def test_testo_vario_non_e_ciclo(self):
         self.assertLess(misura.ripetizione(' '.join(str(i * 7919) for i in range(2000))), 0.2)
