@@ -419,7 +419,7 @@ def main():
         print('errore: cartella inesistente: {0}'.format(cwd), file=sys.stderr)
         sys.exit(1)
 
-    sys.exit(subprocess.run(argv, env=dict(os.environ, **env), cwd=cwd).returncode)
+    sys.exit(subprocess.run(argv, env=dict(os.environ, **env), cwd=cwd, stdin=subprocess.DEVNULL).returncode)   # pi -p non deve aspettare la tastiera
 
 
 if __name__ == '__main__':
