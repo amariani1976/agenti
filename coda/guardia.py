@@ -224,14 +224,45 @@ def tetto_profilo(dati, modello):
 
 # Nomi generici usati da runner, agenti, esecutore e Hermes: il proxy li traduce nel modello attivo di modelli.json,
 # l'unico posto dove si sceglie il modello. Gli altri nomi passano invariati.
-GENERICI = {'esecutore': 'senza_pensiero', 'esecutore-pensiero': 'con_pensiero', 'hermes': 'con_pensiero'}
+# Prima senza ragionamento; con ragionamento solo se serve (utente, 2026-11-09): esecutore-pensiero lo chiede il runner
+# dopo un tentativo fallito, e per gli altri lo decide il proxy quando l'ultimo risultato di uno strumento è un errore.
+GENERICI = {'esecutore': 'senza_pensiero', 'esecutore-pensiero': 'con_pensiero', 'hermes': 'senza_pensiero'}
+SEGNI_ERRORE = ('Traceback (most recent call last)', 'Error:', 'error:', 'ERROR', 'FAILED', 'AssertionError',
+                'command not found', 'No such file or directory', 'exit code', 'Exit code', 'non trovato', 'Errore')
 
 
-def risolvi_modello(dati, modello):
-    """Nome reale per un nome generico secondo il profilo attivo; altrimenti il nome ricevuto."""
+def _testo(contenuto):
+    if isinstance(contenuto, str):
+        return contenuto
+    if isinstance(contenuto, list):
+        return '\n'.join(p.get('text', '') for p in contenuto if isinstance(p, dict) and isinstance(p.get('text'), str))
+    return ''
+
+
+def dopo_errori(messaggi):
+    """True se l'ultimo risultato di uno strumento (dopo l'ultima richiesta dell'utente) contiene un errore."""
+    if not isinstance(messaggi, list):
+        return False
+    for m in reversed(messaggi):
+        if not isinstance(m, dict):
+            continue
+        if m.get('role') == 'user' and not m.get('tool_call_id'):
+            return False
+        if m.get('role') == 'tool':
+            t = _testo(m.get('content'))
+            return any(segno in t for segno in SEGNI_ERRORE)
+    return False
+
+
+def risolvi_modello(dati, modello, messaggi=None):
+    """Nome reale per un nome generico secondo il profilo attivo; altrimenti il nome ricevuto. Un nome senza
+    ragionamento passa alla variante con ragionamento se l'ultimo strumento ha dato errore."""
     if dati is None or modello not in GENERICI:
         return modello
     profilo = dati.get('profili', {}).get(dati.get('attivo'))
     if not isinstance(profilo, dict):
         return modello
-    return profilo.get(GENERICI[modello]) or profilo.get('senza_pensiero') or modello
+    variante = GENERICI[modello]
+    if variante == 'senza_pensiero' and dopo_errori(messaggi):
+        variante = 'con_pensiero'
+    return profilo.get(variante) or profilo.get('senza_pensiero') or modello

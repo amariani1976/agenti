@@ -97,7 +97,7 @@ class Gestore(BaseHTTPRequestHandler):
         # Il modello si sceglie solo in modelli.json (riletto a ogni richiesta): i nomi generici diventano quello attivo
         profili = guardia.carica_profili(self.profili) if isinstance(self.profili, str) else self.profili
         if dati.get('model') is not None:
-            dati['model'] = guardia.risolvi_modello(profili, dati['model'])
+            dati['model'] = guardia.risolvi_modello(profili, dati['model'], dati.get('messages'))
         # Applica tetto dal profilo o quello impostato
         modello = dati.get('model')
         tetto = guardia.tetto_profilo(profili, modello) if modello is not None else None

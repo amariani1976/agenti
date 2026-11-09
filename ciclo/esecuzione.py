@@ -3,10 +3,21 @@ import os
 import subprocess
 
 
+# Prima senza ragionamento; con ragionamento solo quando il prompt riporta un errore o dei difetti del tentativo prima
+# (utente, 2026-11-09). I nomi sono generici: il proxy li traduce nel modello attivo di modelli.json.
+SENZA, CON = 'esecutore', 'esecutore-pensiero'
+SEGNI_RITENTATIVO = ('Errore della verifica nel tentativo precedente', 'Difetti rilevati dalla revisione',
+                     'Il tentativo precedente ha toccato file fuori dal perimetro')
+
+
+def modello_per(prompt):
+    return CON if any(s in prompt for s in SEGNI_RITENTATIVO) else SENZA
+
+
 class Esecuzione(object):
     """Gestisce l'esecuzione di un agente e la verifica dei passi."""
 
-    def __init__(self, radice, esegui, modello='esecutore-pensiero', tempo=1900):
+    def __init__(self, radice, esegui, modello=None, tempo=1900):
         self.radice = radice
         self.esegui = esegui
         self.modello = modello
@@ -49,7 +60,7 @@ class Esecuzione(object):
     def lancia(self, prompt, cartella):
         """Esegue esegui + ['agente', nome, modello] con prompt su stdin."""
         nome = self.progetto(cartella)
-        args = self.esegui + ['agente', nome, self.modello]
+        args = self.esegui + ['agente', nome, self.modello or modello_per(prompt)]
         return self._lancia_sottoprocesso(args, prompt, cartella)
 
     def verifica(self, comando, cartella):

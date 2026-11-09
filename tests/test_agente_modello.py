@@ -1,5 +1,5 @@
-"""L'agente chiede sempre il nome generico esecutore-pensiero, per tutte le chiamate: il modello vero si sceglie solo in
-/opt/ai-vm/modelli.json (lo traduce il proxy). Nessuna variabile d'ambiente lo cambia."""
+"""L'agente chiede i nomi generici: esecutore (senza ragionamento) e esecutore-pensiero solo nei tentativi dopo un
+errore. Il modello vero si sceglie solo in /opt/ai-vm/modelli.json (lo traduce il proxy). Nessuna variabile lo cambia."""
 import os
 import sys
 import unittest
@@ -25,7 +25,7 @@ class Modello(Catena):
         self.assertEqual(r.returncode, 0, r.stderr[-800:])
         chiamate = self.chiamate_agente()
         self.assertTrue(chiamate)
-        self.assertEqual({c.split()[-1] for c in chiamate}, {'esecutore-pensiero'})
+        self.assertEqual({c.split()[-1] for c in chiamate}, {'esecutore'})
 
     def test_variabile_ignorata(self):
         self.env['AGENTE_MODELLO'] = 'ornith-9b-q8'
@@ -33,7 +33,16 @@ class Modello(Catena):
         self.assertEqual(r.returncode, 0, r.stderr[-800:])
         chiamate = self.chiamate_agente()
         self.assertGreaterEqual(len(chiamate), 2, 'programmatore e revisione')
-        self.assertEqual({c.split()[-1] for c in chiamate}, {'esecutore-pensiero'})
+        self.assertEqual({c.split()[-1] for c in chiamate}, {'esecutore'})
+
+
+class ModelloPerPrompt(unittest.TestCase):
+    def test_prima_senza_poi_con(self):
+        sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'ciclo'))
+        import esecuzione
+        self.assertEqual(esecuzione.modello_per('Compito: fai x'), 'esecutore')
+        self.assertEqual(esecuzione.modello_per('Compito: fai x\n\nErrore della verifica nel tentativo precedente:\nboom'), 'esecutore-pensiero')
+        self.assertEqual(esecuzione.modello_per('Difetti rilevati dalla revisione:\n- a'), 'esecutore-pensiero')
 
 
 # I test della catena si provano già nel loro file: qui non si ripetono.

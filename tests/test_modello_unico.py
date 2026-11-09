@@ -22,7 +22,17 @@ class Risolvi(unittest.TestCase):
     def test_generici(self):
         self.assertEqual(guardia.risolvi_modello(PROFILI, 'esecutore'), 'p-no')
         self.assertEqual(guardia.risolvi_modello(PROFILI, 'esecutore-pensiero'), 'p-si')
-        self.assertEqual(guardia.risolvi_modello(PROFILI, 'hermes'), 'p-si')
+        self.assertEqual(guardia.risolvi_modello(PROFILI, 'hermes'), 'p-no', 'Hermes prima senza ragionamento')
+
+    def test_ragionamento_dopo_un_errore(self):
+        ok = [{'role': 'user', 'content': 'fai'}, {'role': 'assistant', 'content': ''},
+              {'role': 'tool', 'tool_call_id': '1', 'content': 'tutto bene'}]
+        rotto = ok[:2] + [{'role': 'tool', 'tool_call_id': '1', 'content': [{'type': 'text', 'text': 'Traceback (most recent call last):'}]}]
+        for nome in ('esecutore', 'hermes'):
+            self.assertEqual(guardia.risolvi_modello(PROFILI, nome, ok), 'p-no')
+            self.assertEqual(guardia.risolvi_modello(PROFILI, nome, rotto), 'p-si')
+        nuova = rotto + [{'role': 'assistant', 'content': 'ok'}, {'role': 'user', 'content': 'altro'}]
+        self.assertEqual(guardia.risolvi_modello(PROFILI, 'hermes', nuova), 'p-no', 'una richiesta nuova riparte senza')
 
     def test_altri_invariati(self):
         self.assertEqual(guardia.risolvi_modello(PROFILI, 'g-no'), 'g-no')
@@ -85,7 +95,7 @@ class Proxy(unittest.TestCase):
         self.chiedi('esecutore')
         self.scrivi('grande')
         self.assertEqual(self.chiedi('esecutore'), ('g-no', 300))
-        self.assertEqual(self.chiedi('hermes'), ('g-si', 300))
+        self.assertEqual(self.chiedi('hermes'), ('g-no', 300))
 
 
 if __name__ == '__main__':

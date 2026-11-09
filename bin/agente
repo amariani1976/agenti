@@ -25,8 +25,9 @@ def _profilo_dir(radice, nome):
 
 def modello_scelto():
     """Nome generico del modello: il proxy lo traduce nel modello attivo di /opt/ai-vm/modelli.json, l'unico posto dove
-    si sceglie il modello (nessuna variabile d'ambiente o scelta per agente)."""
-    return 'esecutore-pensiero'
+    si sceglie il modello (nessuna variabile d'ambiente o scelta per agente). None: prima senza ragionamento, con
+    ragionamento solo nei tentativi dopo un errore (lo decide Esecuzione dal prompt)."""
+    return None
 
 
 def _strumenti(radice, nome):
