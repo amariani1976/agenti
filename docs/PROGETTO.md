@@ -28,7 +28,7 @@ l'unica via pulita è una seconda GPU (§9, D-A6).
   contesto esplicito, KV in q8_0 con flash attention, template originali (`--jinja`).
 - llama-swap carica su richiesta e scarica dopo `ttl`; i **gruppi** tengono accesi insieme più modelli quando lo
   spazio lo permette (es. un piccolo su CPU accanto al programmatore).
-- Hermes e pi usano già llama-swap; Ollama resta solo per i modelli preesistenti. Il container passerà a `motore-ai` (llama-swap + calcolatore dei modelli per VRAM, repository AI-VM `motore/`), affiancato dal container `kb` (§6).
+- Hermes e pi usano llama-swap attraverso il proxy coda-gpu; Ollama non si usa più (2026-11-09). Il container passerà a `motore-ai` (llama-swap + calcolatore dei modelli per VRAM, repository AI-VM `motore/`), affiancato dal container `kb` (§6).
 - Il motore si sceglie per misura: il banco di prova (§8) confronta i modelli sui passi veri dei piani.
 
 ## 4. Agenti (pi)
@@ -60,7 +60,7 @@ installato e aggiornato con `motore-ai`: si può ricostruire il motore senza fer
   documento, quella nel suo repository.
 - **Indice:** SQLite con FTS5 (parole) + `sqlite-vec` (significato) in `/mnt/user/appdata/kb`, ricostruibile in ogni
   momento dai file. **Embedding dall'engine** con un modello piccolo **su CPU** (`nomic-embed-text` o `bge-m3`,
-  `-ngl 0`, sempre acceso in un gruppo di llama-swap): la VRAM resta tutta al modello principale; Ollama non serve.
+  `-ngl 0`, sempre acceso in un gruppo di llama-swap): la VRAM resta tutta al modello principale.
 - **Servizio `kb`** (CPU, accanto a `motore-ai`): operazioni `cerca`, `leggi`, `salva`, `collega` esposte come
   **API HTTP** e come **server MCP** sulla stessa porta. Ogni salvataggio è un commit git (tutto annullabile).
 - **Agganci:**

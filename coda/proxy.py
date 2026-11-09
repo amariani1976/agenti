@@ -23,6 +23,7 @@ class Gestore(BaseHTTPRequestHandler):
     tetto = None
     max_chiamate = None
     profili = None
+    applicato = None
 
     def log_message(self, *a):
         pass
@@ -110,6 +111,8 @@ class Gestore(BaseHTTPRequestHandler):
             if isinstance(tetto, (int, float)):
                 dati = guardia.con_tetto(dati, tetto)
                 corpo = json.dumps(dati).encode()
+        if self.applicato:
+            guardia.accorda_coda(self.coda, self.applicato)   # contesto e parallelo del modello caricato nel motore
         bisogno = int(self.headers.get('X-Contesto') or stima.stima(dati))
         priorita = self.headers.get('X-Priorita', 'normale')
         try:
@@ -124,28 +127,29 @@ class Gestore(BaseHTTPRequestHandler):
             self.coda.esci(biglietto)
 
 
-def crea(coda, upstream, host='127.0.0.1', porta=9393, attesa_max=600, tetto=None, max_chiamate=None, profili=None):
-    g = type('G', (Gestore,), {'coda': coda, 'upstream': upstream, 'attesa_max': attesa_max, 'tetto': tetto, 'max_chiamate': max_chiamate, 'profili': profili})
+def crea(coda, upstream, host='127.0.0.1', porta=9393, attesa_max=600, tetto=None, max_chiamate=None, profili=None,
+         applicato=None):
+    g = type('G', (Gestore,), {'coda': coda, 'upstream': upstream, 'attesa_max': attesa_max, 'tetto': tetto,
+                               'max_chiamate': max_chiamate, 'profili': profili, 'applicato': applicato})
     return ThreadingHTTPServer((host, porta), g)
 
 
 def main():
-    # Capacità e richieste parallele dal profilo attivo (contesto e «parallelo» del motore); cambiando modello si
-    # riavvia il proxy (lo fa ai-vm-modello). Le variabili d'ambiente restano solo per le prove.
-    profili = os.environ.get('CODA_PROFILI', '/opt/ai-vm/modelli.json')   # percorso: riletto a ogni richiesta
+    # Modello, motore e tetti da modelli.json (riletto a ogni richiesta); contesto e parallelo dal modello caricato nel
+    # motore, letti da ai-vm-modello nel file APPLICATO e riletti qui a ogni richiesta: nessun numero scritto a mano.
+    profili = os.environ.get('CODA_PROFILI', '/opt/ai-vm/modelli.json')
+    applicato = os.environ.get('CODA_APPLICATO', '/var/lib/ai-vm/modello-applicato.json')
     dati = guardia.carica_profili(profili)
     if dati is None:
         sys.stderr.write('Avviso: profili non caricati da %s\n' % profili)
-    attivo = (dati or {}).get('profili', {}).get((dati or {}).get('attivo'), {})
-    capacita = int(os.environ.get('CODA_CAPACITA') or int(attivo.get('contesto', 186000) * 0.95))
-    coda = ammissione.Coda(capacita, int(os.environ.get('CODA_SLOT') or attivo.get('parallelo', 1)))
+    upstream = os.environ.get('CODA_UPSTREAM') or (dati or {}).get('motore') or 'http://10.0.0.100:9292'
+    coda = ammissione.Coda(10 ** 9, 1)        # finché il motore non ha detto i suoi valori: una richiesta per volta
+    guardia.accorda_coda(coda, applicato)
     tetto = int(os.environ.get('CODA_TETTO', '0')) or None
-    # Se l'env è '0', diventa None (disabilita il limite), non 0
     max_chiamate = int(os.environ.get('CODA_MAX_CHIAMATE', '0')) or None   # spento: i cicli produttivi non si fermano (utente, 2026-11-08)
-    srv = crea(coda, os.environ.get('CODA_UPSTREAM', 'http://10.0.0.100:9292'), os.environ.get('CODA_HOST', '127.0.0.1'),
-               int(os.environ.get('CODA_PORTA', '9393')), tetto=tetto, max_chiamate=max_chiamate, profili=profili)
+    srv = crea(coda, upstream, os.environ.get('CODA_HOST', '127.0.0.1'), int(os.environ.get('CODA_PORTA', '9393')),
+               tetto=tetto, max_chiamate=max_chiamate, profili=profili, applicato=applicato)
     srv.serve_forever()
-
 
 if __name__ == '__main__':
     sys.exit(main())

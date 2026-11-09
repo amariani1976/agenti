@@ -29,7 +29,7 @@ class Base(unittest.TestCase):
 
 class SalvaTest(Base):
     def test_slug(self):
-        self.assertEqual(kb.slug('Prova: Ollama e GPU!'), 'prova-ollama-e-gpu')
+        self.assertEqual(kb.slug('Prova: Motore e GPU!'), 'prova-motore-e-gpu')
         self.assertEqual(kb.slug('   '), 'nota')
 
     def test_salva_in_inbox_con_intestazione(self):

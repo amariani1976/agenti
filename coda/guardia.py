@@ -266,3 +266,20 @@ def risolvi_modello(dati, modello, messaggi=None):
     if variante == 'senza_pensiero' and dopo_errori(messaggi):
         variante = 'con_pensiero'
     return profilo.get(variante) or profilo.get('senza_pensiero') or modello
+
+
+def accorda_coda(coda, applicato):
+    """Capacità e slot della coda dai valori letti dal motore (file di ai-vm-modello): contesto·0,95 e parallelo.
+    Senza valori la coda resta com'è. Restituisce True se è cambiata."""
+    try:
+        with open(applicato) as f:
+            v = json.load(f)
+        capacita, slot = int(int(v['contesto']) * 0.95), int(v['parallelo'])
+    except (OSError, ValueError, KeyError, TypeError):
+        return False
+    if (coda.capacita, coda.slot_max) == (capacita, slot):
+        return False
+    with coda.cv:
+        coda.capacita, coda.slot_max = capacita, slot
+        coda.cv.notify_all()
+    return True

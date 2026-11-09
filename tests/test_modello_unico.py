@@ -98,5 +98,18 @@ class Proxy(unittest.TestCase):
         self.assertEqual(self.chiedi('hermes'), ('g-no', 300))
 
 
+class AccordaCoda(unittest.TestCase):
+    def test_dai_valori_del_motore(self):
+        d = tempfile.mkdtemp()
+        p = os.path.join(d, 'applicato.json')
+        c = ammissione.Coda(10 ** 9, 1)
+        self.assertFalse(guardia.accorda_coda(c, p), 'senza valori la coda resta com\'è')
+        with open(p, 'w') as f:
+            json.dump({'contesto': 1000, 'parallelo': 3}, f)
+        self.assertTrue(guardia.accorda_coda(c, p))
+        self.assertEqual((c.capacita, c.slot_max), (950, 3))
+        self.assertFalse(guardia.accorda_coda(c, p), 'stessi valori: nessun cambio')
+
+
 if __name__ == '__main__':
     unittest.main()
