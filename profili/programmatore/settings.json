@@ -1,5 +1,5 @@
 {
   "defaultProvider": "llamaswap",
-  "defaultModel": "programmatore",
+  "defaultModel": "esecutore-pensiero",
   "defaultThinkingLevel": "off"
 }
